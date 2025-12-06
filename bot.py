@@ -56,7 +56,7 @@ SPAM_TAKIP = {}
 SPAM_LIMIT = 5   
 SPAM_ZAMAN = 5   
 LINK_ENGEL_AKTIF = True 
-TOKEN =  # Tokeniniz korundu
+TOKEN = 
 
 OTOMATIK_ROL_ADI = "Üye" 
 AFK_DURUMU = {} # {user_id: sebep, ...}
@@ -957,5 +957,6 @@ async def sunucu_komutu(interaction: discord.Interaction):
     await interaction.response.send_message(embed=embed)
 
 # --- BOTU ÇALIŞTIRMA ---
+
 
 client.run('')
