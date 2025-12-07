@@ -3,3 +3,6 @@ aiohttp
 PyNaCl
 yt-dlp  # Bu satırı ekleyin veya kontrol edin
 ffmpeg-python
+youtube_dl
+pytube
+wavelink
