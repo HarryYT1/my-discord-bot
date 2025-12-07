@@ -1,1031 +1,808 @@
+# main.py
 import discord
-from discord.ext import commands
+from discord.ext import commands, tasks
 from discord import app_commands
-import datetime
-import asyncio 
-import json 
-import os 
-import sqlite3 
-import random 
+import asyncio, sqlite3, json, os, random, datetime, aiohttp
+from aiohttp import web
+from dotenv import load_dotenv
 
-# --- DOSYA VE DB YÖNETİMİ ---
-CONFIG_FILE = 'config.json'
-DB_NAME = 'bot_data.db' 
+load_dotenv()
+
+# ---------- CONFIG ----------
+
+CONFIG_FILE = "config.json"
+DB_NAME = "bot_data.db"
 
 def load_config():
-    """Konfigürasyonu dosyadan yükler veya yoksa varsayılan değerleri döndürür."""
     if os.path.exists(CONFIG_FILE):
-        try:
-            with open(CONFIG_FILE, 'r') as f:
-                return json.load(f)
-        except json.JSONDecodeError:
-            print("UYARI: config.json dosyası bozuk. Varsayılan ayarlar kullanılıyor.")
-            return {"LOG_KANAL_ID": None}
-    return {"LOG_KANAL_ID": None} 
+        with open(CONFIG_FILE, "r", encoding="utf-8") as f:
+            return json.load(f)
+    return {
+        "TOKEN": os.getenv("TOKEN") or "",
+        "OWNER_ID": None,
+        "LOG_CHANNEL_ID": None,
+        "AUTOROLE_NAME": "Üye"
+    }
 
-def save_config(config):
-    """Konfigürasyonu dosyaya kaydeder."""
-    with open(CONFIG_FILE, 'w') as f:
-        json.dump(config, f, indent=4)
+def save_config(cfg):
+    with open(CONFIG_FILE, "w", encoding="utf-8") as f:
+        json.dump(cfg, f, indent=4)
+
+CONFIG = load_config()
+TOKEN = CONFIG.get("TOKEN") or os.getenv("TOKEN")
+OWNER_ID = CONFIG.get("OWNER_ID")
+LOG_CHANNEL_ID = CONFIG.get("LOG_CHANNEL_ID")
+AUTOROLE_NAME = CONFIG.get("AUTOROLE_NAME", "Üye")
+
+# ---------- DATABASE SETUP ----------
 
 def setup_db():
-    """SQLite veritabanını ve gerekli tabloları oluşturur."""
     conn = sqlite3.connect(DB_NAME)
-    cursor = conn.cursor()
-    cursor.execute("""
+    c = conn.cursor()
+    c.execute("""
         CREATE TABLE IF NOT EXISTS voice_logs (
             user_id INTEGER PRIMARY KEY,
             total_voice_seconds INTEGER DEFAULT 0
         )
     """)
-    cursor.execute("""
+    c.execute("""
         CREATE TABLE IF NOT EXISTS giveaway_participants (
             message_id INTEGER,
             user_id INTEGER,
             PRIMARY KEY (message_id, user_id)
         )
     """)
-    # ➤ YENİ: Mesaj sayısını takip etmek için tablo
-    cursor.execute("""
+    c.execute("""
         CREATE TABLE IF NOT EXISTS user_messages (
             user_id INTEGER PRIMARY KEY,
             count INTEGER DEFAULT 0
         )
     """)
+    c.execute("""
+        CREATE TABLE IF NOT EXISTS warns (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            guild_id INTEGER,
+            user_id INTEGER,
+            mod_id INTEGER,
+            reason TEXT,
+            timestamp INTEGER
+        )
+    """)
     conn.commit()
     conn.close()
 
-# --- CONFIG VE AYARLAR ---
-CONFIG = load_config() 
+# ---------- GLOBAL STATE ----------
 
-SPAM_TAKIP = {}
-SPAM_LIMIT = 5   
-SPAM_ZAMAN = 5   
-LINK_ENGEL_AKTIF = True 
-TOKEN = '' # Lütfen kendi tokeninizi buraya girin veya os.getenv("TOKEN") kullanın.
-
-OTOMATIK_ROL_ADI = "Üye" 
-AFK_DURUMU = {} 
-YASAKLI_LINKLER = ['discord.gg', 'http://', 'https://', '.com', '.net', '.org'] 
-
-VOICE_JOIN_TIMES = {} 
-CEKILIS_EMOJI = "🎉"
-
-# --- CLIENT VE TREE TANIMLAMA ---
-# ➤ KRİTİK: İhtiyaç duyulan tüm Intent'ler (Durum ve Üye Bilgileri için)
 intents = discord.Intents.all()
 client = discord.Client(intents=intents)
 tree = app_commands.CommandTree(client)
 
-# --- DÜĞME (BUTTON) ETKİLEŞİMİ SINIFI ---
-class CekilisKatilim(discord.ui.View):
-    def __init__(self, message_id, prize, winner_count, timeout=None):
-        super().__init__(timeout=timeout)
-        self.message_id = message_id
-        self.prize = prize
-        self.winner_count = winner_count
+SPAM_TRACK = {}
+SPAM_LIMIT = 5
+SPAM_WINDOW = 5 # seconds
+LINK_BLOCK_ACTIVE = True
+BANNED_LINKS = ['discord.gg', 'http://', 'https://', '.com', '.net', '.org']
+VOICE_JOIN = {} # user_id -> datetime
+AFK = {} # user_id -> reason
+GIVEAWAY_TASKS = {} # message_id -> task
+PRESENCE_STATE = {"activity_type": "playing", "text": "My Boss Harry", "status": "online"}
 
-    @discord.ui.button(label="🎉 Çekilişe Katıl", style=discord.ButtonStyle.green, custom_id="katil_button")
-    async def katil_callback(self, interaction: discord.Interaction, button: discord.ui.Button):
-        user_id = interaction.user.id
-        conn = sqlite3.connect(DB_NAME)
-        cursor = conn.cursor()
-        
-        cursor.execute(
-            "SELECT * FROM giveaway_participants WHERE message_id = ? AND user_id = ?",
-            (self.message_id, user_id)
-        )
-        is_participating = cursor.fetchone()
-        
-        if is_participating:
-            await interaction.response.send_message(
-                "❌ Zaten bu çekilişe katılmışsın!", 
-                ephemeral=True
-            )
-        else:
-            cursor.execute(
-                "INSERT INTO giveaway_participants (message_id, user_id) VALUES (?, ?)",
-                (self.message_id, user_id)
-            )
-            conn.commit()
-            await interaction.response.send_message(
-                f"✅ **{self.prize}** çekilişine başarıyla katıldın!", 
-                ephemeral=True
-            )
-            
-        conn.close()
-
-
-# --- YARDIMCI FONKSİYONLAR ---
-
-def durum_cevir(status):
-    ceviriler = {
-        discord.Status.online: "🟢 Çevrimiçi",
-        discord.Status.idle: "🌙 Boşta",
-        discord.Status.dnd: "⛔ Rahatsız Etmeyin",
-        discord.Status.offline: "⚫ Çevrimdışı/Görünmez",
-        discord.Status.do_not_disturb: "⛔ Rahatsız Etmeyin"
-    }
-    return ceviriler.get(status, "Bilinmiyor")
+# ---------- HELPERS ----------
 
 def format_seconds(seconds):
-    """Saniyeyi Gün, Saat, Dakika, Saniye formatına çevirir."""
-    if seconds is None or seconds == 0:
-        return "0 Saniye"
     seconds = int(seconds)
+    days, seconds = divmod(seconds, 86400)
+    hours, seconds = divmod(seconds, 3600)
     minutes, seconds = divmod(seconds, 60)
-    hours, minutes = divmod(minutes, 60)
-    days, hours = divmod(hours, 24)
-    
     parts = []
-    if days: parts.append(f"**{days}** Gün")
-    if hours: parts.append(f"**{hours}** Saat")
-    if minutes: parts.append(f"**{minutes}** Dakika")
-    if seconds: parts.append(f"**{seconds}** Saniye")
-    
-    return " ".join(parts) if parts else "0 Saniye"
+    if days:
+        parts.append(f"{days}g")
+    if hours:
+        parts.append(f"{hours}s")
+    if minutes:
+        parts.append(f"{minutes}d")
+    if seconds:
+        parts.append(f"{seconds}s")
+    return " ".join(parts) if parts else "0s"
 
-async def check_afk_status(member: discord.Member, channel: discord.TextChannel = None):
-    """Üyenin AFK durumunu kontrol eder ve varsa kaldırır."""
-    global AFK_DURUMU
-    user_id = member.id
-    
-    if user_id in AFK_DURUMU:
-        try:
-            del AFK_DURUMU[user_id]
-            display_name_clean = member.display_name.replace('[AFK] ', '')
-            
-            if len(display_name_clean) > 32:
-                 display_name_clean = display_name_clean[:32]
-                 
-            await member.edit(nick=display_name_clean)
-            
-            if channel:
-                await channel.send(f"👋 **{member.mention}**, AFK durumundan başarıyla çıktın.", delete_after=5)
-            return True
-        except Exception:
-            return False
-    return False
-
-# --- MERKEZİ LOG FONKSİYONU ---
-async def log_event(guild, title, description, color, fields=None):
-    log_id = CONFIG.get("LOG_KANAL_ID") 
-    if not log_id:
+async def log_event(guild: discord.Guild, title: str, desc: str, color=discord.Color.blurple(), fields=None):
+    if not LOG_CHANNEL_ID:
         return
     
-    try:
-        log_channel = guild.get_channel(log_id)
-    except Exception:
+    ch = guild.get_channel(LOG_CHANNEL_ID)
+    if not ch:
         return
-
-    if not log_channel:
-        return
-        
-    embed = discord.Embed(
-        title=title,
-        description=description,
-        color=color,
-        timestamp=datetime.datetime.now(datetime.timezone.utc)
-    )
     
-    embed.set_footer(text=f"Bot ID: {client.user.id}")
+    embed = discord.Embed(title=title, description=desc, color=color, timestamp=datetime.datetime.utcnow())
     
     if fields:
-        for name, value, inline in fields:
-            embed.add_field(name=name, value=value, inline=inline)
-
+        for n, v, i in fields:
+            embed.add_field(name=n, value=v, inline=i)
+            
     try:
-        await log_channel.send(embed=embed)
-    except discord.Forbidden:
-        pass 
+        await ch.send(embed=embed)
+    except Exception:
+        pass
 
-# --- EVENTLER (OLAYLAR) ---
+def owner_only(inter):
+    return inter.user.id == OWNER_ID
+
+# ---------- AIOHTTP SIMPLE API (Presence Endpoint) ----------
+
+async def handle_presence(request):
+    # returns current presence state
+    return web.json_response(PRESENCE_STATE)
+
+async def start_aiohttp():
+    app = web.Application()
+    app.add_routes([web.get('/presence', handle_presence)])
+    runner = web.AppRunner(app)
+    await runner.setup()
+    site = web.TCPSite(runner, '0.0.0.0', 8080)
+    await site.start()
+    print("Presence API running on http://0.0.0.0:8080/presence")
+
+# ---------- CLIENT EVENTS ----------
 
 @client.event
 async def on_ready():
-    setup_db() 
-    await tree.sync() 
-
-    await client.change_presence(
-        activity=discord.Game("𝐌𝐲 𝐁𝐨𝐬𝐬 𝐇𝐚𝐫𝐫𝐲"), 
-        status=discord.Status.online
-    )
-
-    print(f'Bot olarak giriş yaptık: {client.user}') 
-    print(f'Log Kanal ID: {CONFIG["LOG_KANAL_ID"] or "AYARLANMAMIŞ"}')
-    print('----------------------------------')
-    print('TÜM SLASH KOMUTLARI VE VERİTABANI BAŞARIYLA HAZIRLANDI.')
-
-@tree.error 
-async def on_tree_error(interaction: discord.Interaction, error: app_commands.AppCommandError):
-    if isinstance(error, app_commands.MissingPermissions) or isinstance(error, app_commands.MissingAnyPermissions):
-        if not interaction.response.is_done():
-            await interaction.response.send_message(
-                "❌ **HATA:** Bu komutu kullanmaya yetkin yok!", 
-                ephemeral=True
-            )
-        else:
-            await interaction.followup.send(
-                "❌ **HATA:** Bu komutu kullanmaya yetkin yok!", 
-                ephemeral=True
-            )
-        return
+    setup_db()
+    await tree.sync()
+    print(f"Bot ready: {client.user} (ID: {client.user.id})")
     
-    print(f"Komut çalıştırılırken beklenmedik bir hata oluştu: {error}")
+    # apply initial presence
+    await apply_presence_from_state()
     
-    if not interaction.response.is_done():
-        try:
-            await interaction.response.send_message(
-                f"❌ **HATA OLUŞTU:** Komut çalıştırılırken beklenmedik bir hata oluştu.", 
-                ephemeral=True
-            )
-        except Exception:
-            pass 
+    # start aiohttp
+    client.loop.create_task(start_aiohttp())
 
 @client.event
 async def on_member_join(member):
-    try:
-        role = discord.utils.get(member.guild.roles, name=OTOMATIK_ROL_ADI)
-        if role:
+    # autorole
+    role = discord.utils.get(member.guild.roles, name=AUTOROLE_NAME)
+    if role:
+        try:
             await member.add_roles(role)
-    except discord.Forbidden:
-        pass
-        
-    fields = [
-        ("Kullanıcı ID", f"`{member.id}`", True),
-        ("Discord Kayıt Tarihi", discord.utils.format_dt(member.created_at, "R"), False)
-    ]
-    await log_event(
-        member.guild,
-        "🟢 Üye Katıldı",
-        f"**{member.mention}** ({member.display_name}) sunucuya katıldı.\n**Kayıt Durumu**: {'Yeni Hesap' if (datetime.datetime.now(datetime.timezone.utc) - member.created_at).days < 7 else 'Eski Hesap'}",
-        discord.Color.green(),
-        fields=fields
-    )
+        except Exception:
+            pass
+            
+    # log
+    await log_event(member.guild, "Üye Katıldı", f"{member.mention} sunucuya katıldı.", discord.Color.green(), fields=[("ID", f"{member.id}", True)])
 
 @client.event
 async def on_member_remove(member):
-    fields = [
-        ("Kullanıcı ID", f"`{member.id}`", True),
-        ("Sunucuda Kalma Süresi", f"{(datetime.datetime.now(datetime.timezone.utc) - member.joined_at).days} Gün", False)
-    ]
-    await log_event(
-        member.guild,
-        "🔴 Üye Ayrıldı",
-        f"**{member.display_name}** sunucudan ayrıldı. Ayrılmadan önceki toplam üye: **{member.guild.member_count + 1}**",
-        discord.Color.red(),
-        fields=fields
-    )
+    await log_event(member.guild, "Üye Ayrıldı", f"{member.display_name} sunucudan ayrıldı.", discord.Color.red())
 
 @client.event
 async def on_message_delete(message):
-    if message.author.bot or not message.guild:
+    if not message.guild or message.author.bot:
         return
-        
-    await log_event(
-        message.guild,
-        "🗑️ Mesaj Silindi",
-        f"**{message.author.mention}** tarafından gönderilen bir mesaj silindi.",
-        discord.Color.dark_red(),
-        fields=[
-            ("Kanal", message.channel.mention, True),
-            ("Mesaj ID", f"`{message.id}`", True),
-            ("İçerik Önizlemesi", f"```{message.content[:500]}```" if message.content else "*Gömülü mesaj veya dosya*", False)
-        ]
-    )
+    
+    await log_event(message.guild, "Mesaj Silindi", f"Mesaj sahibi: {message.author.mention}", discord.Color.dark_red(), fields=[("Kanal", message.channel.mention, True), ("İçerik", message.content[:400] or "Gömülü", False)])
 
 @client.event
 async def on_message_edit(before, after):
-    if before.content == after.content or before.author.bot or not before.guild:
+    if not before.guild or before.author.bot or before.content == after.content:
         return
-
-    await log_event(
-        before.guild,
-        "📝 Mesaj Düzenlendi",
-        f"**{before.author.mention}** bir mesajı {before.channel.mention} kanalında düzenledi.",
-        discord.Color.orange(),
-        fields=[
-            ("Link", f"[Mesaja Git]({after.jump_url})", False),
-            ("Eski İçerik", f"```{before.content[:500]}```", False),
-            ("Yeni İçerik", f"```{after.content[:500]}```", False)
-        ]
-    )
     
+    await log_event(before.guild, "Mesaj Düzenlendi", f"{before.author.mention} bir mesaj düzenledi.\n[Mesaja Git]({after.jump_url})", discord.Color.orange(), fields=[("Eski", before.content[:500] or "—", False), ("Yeni", after.content[:500] or "—", False)])
+
 @client.event
 async def on_voice_state_update(member, before, after):
-    if before.channel is not None or after.channel is not None:
-        await check_afk_status(member)
-        
+    uid = member.id
+    now = datetime.datetime.utcnow()
     conn = sqlite3.connect(DB_NAME)
-    cursor = conn.cursor()
-    now = datetime.datetime.now(datetime.timezone.utc)
-    
-    user_id = member.id
-    
+    cur = conn.cursor()
+
+    # join
     if before.channel is None and after.channel is not None:
-        VOICE_JOIN_TIMES[user_id] = now
-        await log_event(
-            member.guild,
-            "🔊 Sesli Kanala Katıldı",
-            f"**{member.display_name}** {after.channel.mention} kanalına katıldı.",
-            discord.Color.blue(),
-            fields=[("Kullanıcı ID", f"`{user_id}`", False)]
-        )
-    
+        VOICE_JOIN[uid] = now
+        await log_event(member.guild, "Sesli Katılım", f"{member.mention} {after.channel.mention} kanalına katıldı.", discord.Color.blue())
+
+    # leave
     elif before.channel is not None and after.channel is None:
-        duration = 0
-        if user_id in VOICE_JOIN_TIMES:
-            join_time = VOICE_JOIN_TIMES.pop(user_id)
-            duration = (now - join_time).total_seconds()
-            
-            cursor.execute(
-                "INSERT INTO voice_logs (user_id, total_voice_seconds) VALUES (?, ?) ON CONFLICT(user_id) DO UPDATE SET total_voice_seconds = total_voice_seconds + ?",
-                (user_id, duration, duration)
-            )
+        if uid in VOICE_JOIN:
+            start = VOICE_JOIN.pop(uid)
+            delta = (now - start).total_seconds()
+            cur.execute("INSERT INTO voice_logs (user_id, total_voice_seconds) VALUES (?, ?) ON CONFLICT(user_id) DO UPDATE SET total_voice_seconds = total_voice_seconds + ?", (uid, int(delta), int(delta)))
             conn.commit()
             
-            await log_event(
-                member.guild,
-                "🔇 Sesli Kanaldan Ayrıldı",
-                f"**{member.display_name}** {before.channel.mention} kanalından ayrıldı.",
-                discord.Color.dark_blue(),
-                fields=[
-                    ("Kullanıcı ID", f"`{user_id}`", True),
-                    ("Kanalda Kalma Süresi", format_seconds(duration), False)
-                ]
-            )
+            await log_event(member.guild, "Sesli Ayrılma", f"{member.mention} {before.channel.mention} kanalından ayrıldı.", discord.Color.dark_blue(), fields=[("Süre", format_seconds(delta), False)])
         else:
-             await log_event(
-                member.guild,
-                "🔇 Sesli Kanaldan Ayrıldı",
-                f"**{member.display_name}** {before.channel.mention} kanalından ayrıldı. Süre hesaplanamadı (Bot yeniden başlatıldı).",
-                discord.Color.dark_blue(),
-            )
+            await log_event(member.guild, "Sesli Ayrılma", f"{member.mention} {before.channel.mention} kanalından ayrıldı (süre kaydı yok).", discord.Color.dark_blue())
 
+    # switch
     elif before.channel is not None and after.channel is not None and before.channel != after.channel:
-        duration = 0
-        if user_id in VOICE_JOIN_TIMES:
-            join_time = VOICE_JOIN_TIMES.pop(user_id)
-            duration = (now - join_time).total_seconds()
-
-            cursor.execute(
-                "INSERT INTO voice_logs (user_id, total_voice_seconds) VALUES (?, ?) ON CONFLICT(user_id) DO UPDATE SET total_voice_seconds = total_voice_seconds + ?",
-                (user_id, duration, duration)
-            )
-            
-            VOICE_JOIN_TIMES[user_id] = now
+        if uid in VOICE_JOIN:
+            start = VOICE_JOIN.pop(uid)
+            delta = (now - start).total_seconds()
+            cur.execute("INSERT INTO voice_logs (user_id, total_voice_seconds) VALUES (?, ?) ON CONFLICT(user_id) DO UPDATE SET total_voice_seconds = total_voice_seconds + ?", (uid, int(delta), int(delta)))
             conn.commit()
-        
-        await log_event(
-            member.guild,
-            "➡️ Sesli Kanal Değiştirdi",
-            f"**{member.display_name}** {before.channel.mention} kanalından {after.channel.mention} kanalına geçti.",
-            discord.Color.purple(),
-            fields=[
-                ("Kullanıcı ID", f"`{user_id}`", True),
-                ("Önceki Kanal Süresi", format_seconds(duration), False)
-            ]
-        )
-    
+            
+            VOICE_JOIN[uid] = now
+            
+            await log_event(member.guild, "Ses Kanal Değişikliği", f"{member.mention} {before.channel.mention} -> {after.channel.mention}", discord.Color.purple(), fields=[("Son Süre", format_seconds(delta), False)])
+
     conn.close()
 
 @client.event
 async def on_message(message):
-    global SPAM_TAKIP, AFK_DURUMU
-
-    if message.author.bot:
+    if message.author.bot or not message.guild:
         return
 
-    # A) AFK Kapanması (Yazı yazdığında)
-    await check_afk_status(message.author, message.channel)
+    # AFK kaldır (yazınca)
+    if message.author.id in AFK:
+        try:
+            del AFK[message.author.id]
+            nick = message.author.display_name
+            if nick.startswith("[AFK] "):
+                try:
+                    await message.author.edit(nick=nick.replace("[AFK] ", "")[:32])
+                except Exception:
+                    pass
+            await message.channel.send(f"👋 {message.author.mention} AFK modundan çıktın.", delete_after=5)
+        except Exception:
+            pass
 
-    # B) AFK Etiketleme Kontrolü
-    for user_id_afk, sebep in AFK_DURUMU.items():
-        if client.get_user(user_id_afk) in message.mentions:
-            afk_kullanici = client.get_user(user_id_afk)
-            await message.channel.send(f"💤 **{afk_kullanici.mention}** şu anda AFK. Sebep: **{sebep}**", delete_after=10)
+    # birisi AFK etiketlediyse haberdar et
+    for u_id, reason in AFK.items():
+        if client.get_user(u_id) in message.mentions:
+            try:
+                await message.channel.send(f"💤 {client.get_user(u_id).mention} şu anda AFK. Sebep: {reason}", delete_after=8)
+            except Exception:
+                pass
 
-    # C) Link Engel Kontrolü
-    if LINK_ENGEL_AKTIF:
-        mesaj_icerigi = message.content.lower()
-        if any(link in mesaj_icerigi for link in YASAKLI_LINKLER) and not message.author.guild_permissions.manage_messages:
+    # link blok
+    if LINK_BLOCK_ACTIVE and not message.author.guild_permissions.manage_messages:
+        s = message.content.lower()
+        if any(x in s for x in BANNED_LINKS):
             try:
                 await message.delete()
-                await message.channel.send(f"🚫 **{message.author.mention}**, bu kanalda link paylaşımına izin verilmiyor!", delete_after=5)
+                await message.channel.send(f"🚫 {message.author.mention}, bu kanalda link paylaşımı yasak!", delete_after=5)
+                return
             except discord.Forbidden:
                 pass
 
-    # D) Anti-Spam Kontrolü
-    user_id = message.author.id
-    current_time = message.created_at.timestamp()
+    # spam kontrol
+    uid = message.author.id
+    now_ts = message.created_at.timestamp()
     
-    if user_id not in SPAM_TAKIP:
-        SPAM_TAKIP[user_id] = []
+    arr = SPAM_TRACK.get(uid, [])
+    arr = [t for t in arr if t > now_ts - SPAM_WINDOW]
+    arr.append(now_ts)
+    SPAM_TRACK[uid] = arr
     
-    SPAM_TAKIP[user_id] = [t for t in SPAM_TAKIP[user_id] if t > current_time - SPAM_ZAMAN]
-    SPAM_TAKIP[user_id].append(current_time)
-    
-    if len(SPAM_TAKIP[user_id]) > SPAM_LIMIT:
+    if len(arr) > SPAM_LIMIT:
         try:
-            await message.author.timeout(datetime.timedelta(minutes=60), reason="Spam yapma")
+            await message.author.timeout(datetime.timedelta(minutes=60), reason="Spam")
+            await message.channel.send(f"🚨 {message.author.mention} spam nedeniyle 60 dakika susturuldu.", delete_after=8)
+            # purge recent messages from that user
+            await message.channel.purge(limit=len(arr)+1, check=lambda m: m.author.id==uid)
+        except Exception:
+            await message.channel.send("⚠️ Botun timeout veya purge yetkisi yok.")
             
-            await log_event(
-                message.guild,
-                "🛡️ Otomatik Susturma (Anti-Spam)",
-                f"**{message.author.mention}** spam yaptığı için otomatik olarak 60 dakika susturuldu.",
-                discord.Color.darker_grey(),
-                fields=[
-                    ("Kullanıcı ID", f"`{message.author.id}`", False),
-                    ("Süre", "60 Dakika", False)
-                ]
-            )
-
-            await message.channel.send(
-                f"🚨 **{message.author.mention}**, spam yaptığın için 1 saat susturuldun. 🚨",
-                delete_after=10
-            )
-            await message.channel.purge(limit=len(SPAM_TAKIP[user_id]), check=lambda m: m.author == message.author)
-        except discord.Forbidden:
-            await message.channel.send("⚠️ Botun susturma veya mesaj silme izni yok!")
-            
-        SPAM_TAKIP[user_id] = [] 
-
-    # ➤ YENİ: Mesaj Sayısı Güncelleme
-    conn = sqlite3.connect(DB_NAME)
-    cursor = conn.cursor()
-    cursor.execute(
-        "INSERT INTO user_messages (user_id, count) VALUES (?, 1) ON CONFLICT(user_id) DO UPDATE SET count = count + 1",
-        (user_id,)
-    )
-    conn.commit()
-    conn.close()
+        SPAM_TRACK[uid] = []
         
 
-# --- SLASH KOMUTLARI (COMMANDS) ---
-
-# /yardım
-@tree.command(name="yardım", description="Botun tüm komutlarını kategorilere ayrılmış bir şekilde gösterir.")
-async def yardim_komutu(interaction: discord.Interaction):
-    embed = discord.Embed(
-        title="🤖 BOT KOMUT VE MODÜLLERİ",
-        description=f"Botumuzdaki tüm aktif sistem ve komutlara hızlı erişim.\n\n"
-                    f"**My Boss Harry Destek Sunucusu:** discord.gg/bJNh74tqRz",
-        color=discord.Color.dark_teal()
-    )
-
-    embed.add_field(
-        name="🛡️ Yönetim & Moderasyon",
-        value="`/yasakla`, `/yasakkaldir`, `/kilit`, `/sil`, `/logayarla`",
-        inline=False
-    )
-
-    embed.add_field(
-        name="🎁 Çekiliş Sistemi",
-        value="`/çekiliş` (Butonlu ve ephemeral onay mesajlı)",
-        inline=False
-    )
-
-    embed.add_field(
-        name="📊 Analiz & Bilgi Sistemleri",
-        value="`/kullanici`, `/koruma`, `/avatar`, `/roller`, `/sunucu`",
-        inline=False
-    )
-
-    embed.add_field(
-        name="🛠️ Kullanıcı Araçları",
-        value="`/afk`, `/hatırlatıcı`",
-        inline=False
-    )
-
-    embed.add_field(
-        name="🔊 Sesli Kanal Araçları",
-        value="`/çek`, `/taşı`",
-        inline=False
-    )
-
-    embed.set_footer(text="Komutları kullanmak için sohbet kutusuna '/' yazın.")
-    await interaction.response.send_message(embed=embed, ephemeral=False)
-
-
-# /çekiliş (Aynı kaldı)
-@tree.command(name="çekiliş", description="Yeni bir çekiliş başlatır.")
-@app_commands.checks.has_permissions(manage_guild=True)
-async def cekilis_komutu(
-    interaction: discord.Interaction, 
-    süre_dakika: app_commands.Range[int, 1, 1440], 
-    kazanan_sayisi: app_commands.Range[int, 1, 10], 
-    ödül: str
-):
-    channel = interaction.channel
-    end_time = datetime.datetime.now(datetime.timezone.utc) + datetime.timedelta(minutes=süre_dakika)
-    
-    embed = discord.Embed(
-        title="🎉 ÇEKİLİŞ BAŞLADI 🎉",
-        description="Katılmak için aşağıdaki **'🎉 Çekilişe Katıl'** düğmesine tıklayın!", 
-        color=discord.Color.yellow()
-    )
-    embed.add_field(name="🎁 Ödül", value=ödül, inline=False)
-    embed.add_field(name="👤 Kazanacak Kişi Sayısı", value=str(kazanan_sayisi), inline=True)
-    embed.add_field(name="⏰ Bitiş Zamanı", value=discord.utils.format_dt(end_time, "R"), inline=True)
-    embed.set_footer(text=f"Başlatan: {interaction.user.display_name}")
-    
-    await interaction.response.send_message(f"✅ Çekiliş **{channel.mention}** kanalında başlatıldı!", ephemeral=True)
-    
-    view = CekilisKatilim(
-        message_id=0,
-        prize=ödül, 
-        winner_count=kazanan_sayisi,
-        timeout=süre_dakika * 60 
-    )
-    
-    cekilis_mesaj = await channel.send(
-        embed=embed, 
-        view=view
-    )
-    
-    view.message_id = cekilis_mesaj.id
-    await cekilis_mesaj.edit(view=view)
-    
-    await asyncio.sleep(süre_dakika * 60)
-    
+    # mesaj sayacı
     conn = sqlite3.connect(DB_NAME)
-    cursor = conn.cursor()
-    
-    cursor.execute(
-        "SELECT user_id FROM giveaway_participants WHERE message_id = ?",
-        (cekilis_mesaj.id,)
-    )
-    participant_ids = [row[0] for row in cursor.fetchall()]
-    
-    cursor.execute("DELETE FROM giveaway_participants WHERE message_id = ?", (cekilis_mesaj.id,))
+    cur = conn.cursor()
+    cur.execute("INSERT INTO user_messages (user_id, count) VALUES (?, 1) ON CONFLICT(user_id) DO UPDATE SET count = count + 1", (uid,))
     conn.commit()
     conn.close()
+
+# ---------- PRESENCE HELP ----------
+
+async def apply_presence_from_state():
+    # PRESENCE_STATE: {"activity_type": "playing/streaming/listening/watching", "text": "...", "status": "online/idle/dnd/offline"}
+    try:
+        a = PRESENCE_STATE.get("activity_type", "playing").lower()
+        t = PRESENCE_STATE.get("text", "")
+        s = PRESENCE_STATE.get("status", "online")
+
+        st = discord.Status.online
+        if s == "idle": st = discord.Status.idle
+        if s == "dnd": st = discord.Status.dnd
+        if s == "offline": st = discord.Status.offline
+
+        act = None
+        if a == "playing":
+            act = discord.Game(t)
+        elif a == "listening":
+            act = discord.Activity(type=discord.ActivityType.listening, name=t)
+        elif a == "watching":
+            act = discord.Activity(type=discord.ActivityType.watching, name=t)
+        elif a == "streaming":
+            act = discord.Streaming(name=t, url="https://twitch.tv/") if t else discord.Activity(type=discord.ActivityType.playing, name=t)
+        else:
+            act = discord.Game(t)
+
+        await client.change_presence(activity=act, status=st)
+    except Exception as e:
+        print("Presence apply error:", e)
+
+# ---------- GIVEAWAY BUTTON VIEW ----------
+
+class GiveawayView(discord.ui.View):
+    def __init__(self, message_id, prize, winners):
+        super().__init__(timeout=None)
+        self.message_id = message_id
+        self.prize = prize
+        self.winners = winners
+
+    @discord.ui.button(label="🎉 Çekilişe Katıl", style=discord.ButtonStyle.green, custom_id="giveaway_join")
+    async def join(self, interaction: discord.Interaction, button: discord.ui.Button):
+        uid = interaction.user.id
+        conn = sqlite3.connect(DB_NAME)
+        cur = conn.cursor()
+        
+        cur.execute("SELECT * FROM giveaway_participants WHERE message_id = ? AND user_id = ?", (self.message_id, uid))
+        if cur.fetchone():
+            await interaction.response.send_message("❌ Zaten katıldın.", ephemeral=True)
+        else:
+            cur.execute("INSERT INTO giveaway_participants (message_id, user_id) VALUES (?, ?)", (self.message_id, uid))
+            conn.commit()
+            await interaction.response.send_message(f"✅ {interaction.user.mention} çekilişe katıldı: **{self.prize}**", ephemeral=True)
+            
+        conn.close()
+
+# ---------- SLASH COMMANDS (50+ komut kümesi) ----------
+# We'll define many commands. Some are lightweight implementations for demo.
+
+@tree.command(name="yardım", description="Botun komutlarını gösterir.")
+async def cmd_help(interaction: discord.Interaction):
+    embed = discord.Embed(title="📚 Komutlar", color=discord.Color.blurple())
+    embed.add_field(name="Moderasyon", value="/yasakla /yasakkaldir /kick /mute /unmute /warn /warnings /sil", inline=False)
+    embed.add_field(name="Genel", value="/yardım /ping /sunucu /kullanici /avatar /roller", inline=False)
+    embed.add_field(name="Çekiliş", value="/çekiliş", inline=False)
+    embed.add_field(name="Eğlence", value="/meme /joke /8ball /rps /slot", inline=False)
+    embed.add_field(name="Diğer", value="/afk /hatırlatıcı /koruma /çek /taşı /status", inline=False)
+    await interaction.response.send_message(embed=embed, ephemeral=True)
+
+# Moderasyon
+@tree.command(name="yasakla", description="Üyeyi yasaklar.")
+@app_commands.checks.has_permissions(ban_members=True)
+async def cmd_ban(interaction: discord.Interaction, uye: discord.Member, sebep: str = "Sebep belirtilmedi"):
+    try:
+        await interaction.guild.ban(uye, reason=sebep)
+        await log_event(interaction.guild, "Üye Yasaklandı", f"{uye.mention} yasaklandı. Sebep: {sebep}", discord.Color.dark_magenta(), fields=[("Yetkili", interaction.user.mention, True)])
+        await interaction.response.send_message(f"✅ {uye.display_name} yasaklandı.")
+    except Exception as e:
+        await interaction.response.send_message(f"❌ Hata: {e}", ephemeral=True)
+
+@tree.command(name="yasakkaldir", description="ID ile yasağı kaldırır.")
+@app_commands.checks.has_permissions(ban_members=True)
+async def cmd_unban(interaction: discord.Interaction, id: str, sebep: str = "Sebep belirtilmedi"):
+    try:
+        user_id = int(id)
+    except:
+        await interaction.response.send_message("❌ Geçerli ID gir.", ephemeral=True); return
+        
+    bans = await interaction.guild.bans()
+    target = discord.utils.get(bans, user__id=user_id) or discord.utils.get(bans, user__id=user_id)
+    if not any(b.user.id==user_id for b in bans):
+        await interaction.response.send_message("❌ Bu ID ile yasaklı kullanıcı yok.", ephemeral=True); return
     
     try:
-        guncel_mesaj = await channel.fetch_message(cekilis_mesaj.id)
-    except discord.NotFound:
+        await interaction.guild.unban(discord.Object(id=user_id), reason=sebep)
+        await interaction.response.send_message("✅ Yasağı kaldırıldı.")
+    except Exception as e:
+        await interaction.response.send_message(f"❌ Hata: {e}", ephemeral=True)
+
+@tree.command(name="kick", description="Üyeyi atar.")
+@app_commands.checks.has_permissions(kick_members=True)
+async def cmd_kick(interaction: discord.Interaction, uye: discord.Member, sebep: str = "Sebep belirtilmedi"):
+    try:
+        await interaction.guild.kick(uye, reason=sebep)
+        await interaction.response.send_message(f"✅ {uye.display_name} atıldı.")
+    except Exception as e:
+        await interaction.response.send_message(f"❌ Hata: {e}", ephemeral=True)
+
+@tree.command(name="sil", description="Belirtilen miktarda mesaj siler (max 100).")
+@app_commands.checks.has_permissions(manage_messages=True)
+async def cmd_purge(interaction: discord.Interaction, miktar: app_commands.Range[int,1,100]):
+    await interaction.response.defer(ephemeral=True)
+    deleted = await interaction.channel.purge(limit=miktar)
+    await interaction.followup.send(f"✅ {len(deleted)} mesaj silindi.", ephemeral=True)
+
+@tree.command(name="mute", description="Kullanıcıyı soft-mute (role ile) uygular.")
+@app_commands.checks.has_permissions(manage_roles=True)
+async def cmd_mute(interaction: discord.Interaction, uye: discord.Member, sure_dakika: app_commands.Range[int,1,1440]=60, sebep: str = "Sebep belirtilmedi"):
+    role = discord.utils.get(interaction.guild.roles, name="Muted")
+    if not role:
+        perms = discord.PermissionOverwrite(send_messages=False, speak=False)
+        role = await interaction.guild.create_role(name="Muted", reason="Mute rolü oluşturuldu")
+        for ch in interaction.guild.channels:
+            try:
+                await ch.set_permissions(role, overwrite=perms)
+            except Exception:
+                pass
+
+    try:
+        await uye.add_roles(role, reason=sebep)
+        await interaction.response.send_message(f"🔇 {uye.display_name} {sure_dakika} dakika boyunca susturuldu.")
+
+        await asyncio.sleep(sure_dakika*60)
+
+        try:
+            await uye.remove_roles(role, reason="Mute süresi bitti") # no message to avoid spam
+        except Exception:
+            pass
+
+    except Exception as e:
+        await interaction.response.send_message(f"❌ Hata: {e}", ephemeral=True)
+
+@tree.command(name="unmute", description="Kullanıcının mutesini kaldırır.")
+@app_commands.checks.has_permissions(manage_roles=True)
+async def cmd_unmute(interaction: discord.Interaction, uye: discord.Member):
+    role = discord.utils.get(interaction.guild.roles, name="Muted")
+    if role and role in uye.roles:
+        await uye.remove_roles(role)
+        await interaction.response.send_message(f"✅ {uye.display_name} mutesi kaldırıldı.")
+    else:
+        await interaction.response.send_message("❌ Kullanıcı mute değil veya 'Muted' rolü yok.", ephemeral=True)
+
+# Warn system
+@tree.command(name="warn", description="Kullanıcıya uyarı ekler.")
+@app_commands.checks.has_permissions(manage_messages=True)
+async def cmd_warn(interaction: discord.Interaction, uye: discord.Member, sebep: str):
+    conn = sqlite3.connect(DB_NAME); cur = conn.cursor()
+    cur.execute("INSERT INTO warns (guild_id, user_id, mod_id, reason, timestamp) VALUES (?,?,?,?,?)", (interaction.guild.id, uye.id, interaction.user.id, sebep, int(datetime.datetime.utcnow().timestamp())))
+    conn.commit(); conn.close()
+    
+    await interaction.response.send_message(f"⚠️ {uye.mention} uyarıldı. Sebep: {sebep}")
+    await log_event(interaction.guild, "Uyarı", f"{uye.mention} uyarıldı. Sebep: {sebep}", discord.Color.orange(), fields=[("Yetkili", interaction.user.mention, True)])
+
+@tree.command(name="warnings", description="Kullanıcının uyarılarını gösterir.")
+@app_commands.checks.has_permissions(manage_messages=True)
+async def cmd_warnings(interaction: discord.Interaction, uye: discord.Member):
+    conn = sqlite3.connect(DB_NAME); cur = conn.cursor()
+    cur.execute("SELECT id, mod_id, reason, timestamp FROM warns WHERE guild_id = ? AND user_id = ?", (interaction.guild.id, uye.id))
+    rows = cur.fetchall(); conn.close()
+    
+    if not rows:
+        await interaction.response.send_message("Bu kullanıcının hiç uyarısı yok.", ephemeral=True)
+        return
+        
+    text = "\n".join([f"#{r[0]} — Yetkili: <@{r[1]}> — {r[2]} — {datetime.datetime.utcfromtimestamp(r[3]).strftime('%Y-%m-%d %H:%M')}" for r in rows])
+    await interaction.response.send_message(f"Uyarılar:\n{text}", ephemeral=True)
+
+# Utility & info
+@tree.command(name="ping", description="Bot gecikmesini gösterir.")
+async def cmd_ping(interaction: discord.Interaction):
+    await interaction.response.send_message(f"Pong! {round(client.latency*1000)}ms")
+
+@tree.command(name="sunucu", description="Sunucu bilgilerini gösterir.")
+async def cmd_server(interaction: discord.Interaction):
+    g = interaction.guild
+    embed = discord.Embed(title=f"{g.name} Bilgileri", color=discord.Color.purple())
+    embed.add_field(name="Üyeler", value=g.member_count)
+    embed.add_field(name="Roller", value=len(g.roles))
+    embed.add_field(name="Kurucu", value=g.owner.mention if g.owner else "—")
+    embed.set_thumbnail(url=g.icon.url if g.icon else discord.Embed.Empty)
+    await interaction.response.send_message(embed=embed)
+
+@tree.command(name="kullanici", description="Kullanıcı detaylarını gösterir.")
+async def cmd_user(interaction: discord.Interaction, uye: discord.Member = None):
+    uye = uye or interaction.user
+    conn = sqlite3.connect(DB_NAME); cur=conn.cursor()
+    
+    cur.execute("SELECT total_voice_seconds FROM voice_logs WHERE user_id = ?", (uye.id,))
+    vr = cur.fetchone()
+    vt = vr[0] if vr else 0
+    
+    cur.execute("SELECT count FROM user_messages WHERE user_id = ?", (uye.id,))
+    mr = cur.fetchone()
+    mc = mr[0] if mr else 0
+    
+    conn.close()
+    
+    emb = discord.Embed(title=f"{uye.display_name} Bilgileri", color=uye.color)
+    emb.add_field(name="ID", value=str(uye.id), inline=True)
+    emb.add_field(name="Ses Süresi", value=format_seconds(vt), inline=True)
+    emb.add_field(name="Mesaj Sayısı", value=str(mc), inline=True)
+    emb.set_thumbnail(url=uye.avatar.url if uye.avatar else None)
+    
+    await interaction.response.send_message(embed=emb)
+
+@tree.command(name="avatar", description="Kullanıcının avatarını gösterir.")
+async def cmd_avatar(interaction: discord.Interaction, uye: discord.Member = None):
+    uye = uye or interaction.user
+    await interaction.response.send_message(uye.avatar.url)
+
+@tree.command(name="roller", description="Sunucudaki rolleri listeler.")
+async def cmd_roles(interaction: discord.Interaction):
+    roles = sorted([r for r in interaction.guild.roles if r.name != "@everyone"], key=lambda r: r.position, reverse=True)
+    text = "\n".join([f"{r.mention} ({len(r.members)} üye)" for r in roles])
+    if not text:
+        text = "Özel rol yok."
+    await interaction.response.send_message(embed=discord.Embed(title="Roller", description=text[:4000], color=discord.Color.blue()))
+
+# Moderation helpers: slowmode, lock, unlock
+@tree.command(name="kilit", description="Kanalı kilitler (everyone için mesaj engeli).")
+@app_commands.checks.has_permissions(manage_channels=True)
+async def cmd_lock(interaction: discord.Interaction, sure_dakika: app_commands.Range[int,1,1440]=1):
+    ch = interaction.channel
+    everyone = interaction.guild.default_role
+    perms = ch.overwrites_for(everyone)
+    perms.send_messages = False
+    await ch.set_permissions(everyone, overwrite=perms, reason=f"Kilitlendi: {interaction.user}")
+    await interaction.response.send_message(f"🔒 Kanal {sure_dakika} dakika kilitlendi.")
+    
+    await asyncio.sleep(sure_dakika*60)
+    
+    perms.send_messages = None
+    await ch.set_permissions(everyone, overwrite=perms, reason="Kilit açıldı")
+    await ch.send("🔓 Kanal kilidi açıldı.")
+
+@tree.command(name="slowmode", description="Kanal slowmode ayarlar (saniye).")
+@app_commands.checks.has_permissions(manage_channels=True)
+async def cmd_slowmode(interaction: discord.Interaction, sure_saniye: app_commands.Range[int,0,21600]):
+    await interaction.channel.edit(slowmode_delay=sure_saniye, reason=f"Slowmode: {interaction.user}")
+    await interaction.response.send_message(f"⏱️ Slowmode {sure_saniye} saniye olarak ayarlandı.")
+
+# AFK
+@tree.command(name="afk", description="AFK durumuna geçersin.")
+async def cmd_afk(interaction: discord.Interaction, sebep: str = "AFK"):
+    AFK[interaction.user.id] = sebep
+    
+    # nick değişikliği dene
+    try:
+        new = f"[AFK] {interaction.user.display_name}"
+        if len(new) > 32: new = new[:32]
+        await interaction.user.edit(nick=new)
+    except Exception:
+        pass
+        
+    await interaction.response.send_message(f"💤 {interaction.user.mention} AFK: {sebep}")
+
+# Hatırlatıcı
+@tree.command(name="hatırlatıcı", description="Belirtilen dakika sonra hatırlatır.")
+async def cmd_reminder(interaction: discord.Interaction, sure_dakika: app_commands.Range[int,1,10080], mesaj: str):
+    await interaction.response.send_message(f"⏰ {sure_dakika} dakikada hatırlatılacaksın.", ephemeral=True)
+    await asyncio.sleep(sure_dakika*60)
+    await interaction.followup.send(f"🔔 Hatırlatma: {interaction.user.mention}\n> {mesaj}")
+
+# Çekiliş (buton)
+@tree.command(name="çekiliş", description="Yeni çekiliş başlatır (dakika).")
+@app_commands.checks.has_permissions(manage_guild=True)
+async def cmd_giveaway(interaction: discord.Interaction, sure_dakika: app_commands.Range[int,1,1440], kazanan_sayisi: app_commands.Range[int,1,10], ödül: str):
+    await interaction.response.defer(ephemeral=True)
+    
+    end_time = datetime.datetime.utcnow() + datetime.timedelta(minutes=sure_dakika)
+    embed = discord.Embed(title="🎉 Çekiliş Başladı!", description=f"Ödül: **{ödül}**\nKazanacak kişi: {kazanan_sayisi}\nBitiş: {discord.utils.format_dt(end_time, 'R')}", color=discord.Color.gold())
+    
+    msg = await interaction.channel.send(embed=embed, view=GiveawayView(0, ödül, kazanan_sayisi))
+    
+    # update view message_id
+    view = GiveawayView(msg.id, ödül, kazanan_sayisi)
+    await msg.edit(view=view)
+    
+    await interaction.followup.send(f"✅ Çekiliş başlatıldı: {msg.jump_url}", ephemeral=True)
+
+    async def finish():
+        await asyncio.sleep(sure_dakika*60)
+        
+        conn = sqlite3.connect(DB_NAME); cur = conn.cursor()
+        cur.execute("SELECT user_id FROM giveaway_participants WHERE message_id = ?", (msg.id,))
+        rows = cur.fetchall()
+        cur.execute("DELETE FROM giveaway_participants WHERE message_id = ?", (msg.id,))
+        conn.commit(); conn.close()
+        
+        participants = [interaction.guild.get_member(r[0]) for r in rows if interaction.guild.get_member(r[0])]
+        
+        if participants:
+            winners = random.sample(participants, min(kazanan_sayisi, len(participants)))
+            mentions = " ".join([w.mention for w in winners])
+            res_embed = discord.Embed(title="🎉 Çekiliş Sonuçlandı", description=f"Kazananlar: {mentions}\nÖdül: **{ödül}**", color=discord.Color.green())
+            await interaction.channel.send(f"🎉 Tebrikler! {mentions}", embed=res_embed)
+            await msg.edit(embed=res_embed, view=None)
+        else:
+            res = discord.Embed(title="Çekiliş İptal", description="Yeterli katılım yoktu.", color=discord.Color.red())
+            await interaction.channel.send("Çekiliş sona erdi, katılımcı yoktu.", embed=res)
+            await msg.edit(embed=res, view=None)
+            
+    task = client.loop.create_task(finish())
+    GIVEAWAY_TASKS[msg.id] = task
+
+# Ekonomi (basit)
+ECONOMY = {} # user_id -> balance (volatile demo)
+DAILY_CLAIMED = {}
+
+@tree.command(name="balance", description="Bakiyeni gösterir.")
+async def cmd_balance(interaction: discord.Interaction, uye: discord.Member = None):
+    uye = uye or interaction.user
+    bal = ECONOMY.get(uye.id, 0)
+    await interaction.response.send_message(f"💰 {uye.mention} bakiyesi: **{bal}**")
+
+@tree.command(name="daily", description="Günlük ödül alırsın.")
+async def cmd_daily(interaction: discord.Interaction):
+    uid = interaction.user.id
+    now = datetime.datetime.utcnow()
+    last = DAILY_CLAIMED.get(uid)
+    
+    if last and (now - last).total_seconds() < 24*3600:
+        await interaction.response.send_message("❌ Günlük ödül zaten alınmış. 24 saat bekle.", ephemeral=True)
         return
 
-    katilimcilar = []
-    for user_id in participant_ids:
-        user = interaction.guild.get_member(user_id)
-        if user and not user.bot:
-            katilimcilar.append(user)
-
-    if katilimcilar:
-        kazanan_sayisi = min(kazanan_sayisi, len(katilimcilar))
-        kazananlar = random.sample(katilimcilar, kazanan_sayisi)
-
-        kazananlar_mention = " ".join([k.mention for k in kazananlar])
-        
-        kazanan_embed = discord.Embed(
-            title="🎉 ÇEKİLİŞ SONUCU 🎉",
-            description=f"Tebrikler, **{ödül}** ödülünü kazananlar belli oldu!",
-            color=discord.Color.gold()
-        )
-        kazanan_embed.add_field(name="🎁 Ödül", value=ödül, inline=False)
-        kazanan_embed.add_field(name="🏆 Kazananlar", value=kazananlar_mention, inline=False)
-        kazanan_embed.set_footer(text="Çekiliş sona erdi.")
-        
-        await channel.send(
-            f"🎉 **ÇEKİLİŞ SONA ERDİ!** {kazananlar_mention} tebrikler, **{ödül}** kazandınız!",
-            embed=kazanan_embed
-        )
-        
-        await guncel_mesaj.edit(embed=kazanan_embed, view=None)
-
-    else:
-        bitis_embed = discord.Embed(
-            title="❌ ÇEKİLİŞ SONA ERDİ",
-            description="Yeterli katılımcı olmadığı için kazanan belirlenemedi.",
-            color=discord.Color.red()
-        )
-        await channel.send("Yeterli katılım sağlanamadı.", embed=bitis_embed)
-        await guncel_mesaj.edit(embed=bitis_embed, view=None)
-
-
-# /logayarla (Aynı kaldı)
-@tree.command(name="logayarla", description="Log kanalını belirler.")
-@app_commands.checks.has_permissions(administrator=True)
-async def log_ayarla_komutu(interaction: discord.Interaction, kanal: discord.TextChannel):
-    global CONFIG
+    amount = random.randint(50,200)
+    ECONOMY[uid] = ECONOMY.get(uid,0) + amount
+    DAILY_CLAIMED[uid] = now
     
-    CONFIG["LOG_KANAL_ID"] = kanal.id
+    await interaction.response.send_message(f"🎁 Günlük ödül: **{amount}** alındı! Yeni bakiye: **{ECONOMY[uid]}**")
+
+@tree.command(name="pay", description="Kullanıcıya para gönder.")
+async def cmd_pay(interaction: discord.Interaction, uye: discord.Member, amount: int):
+    if amount <= 0:
+        await interaction.response.send_message("❌ Geçerli miktar gir.", ephemeral=True); return
+        
+    uid = interaction.user.id
+    if ECONOMY.get(uid,0) < amount:
+        await interaction.response.send_message("❌ Yeterli bakiye yok.", ephemeral=True); return
+        
+    ECONOMY[uid] -= amount
+    ECONOMY[uye.id] = ECONOMY.get(uye.id,0) + amount
+    
+    await interaction.response.send_message(f"✅ {uye.mention} kullanıcısına **{amount}** gönderildi.")
+
+# Eğlence komutları
+@tree.command(name="meme", description="Rastgele meme (placeholder).")
+async def cmd_meme(interaction: discord.Interaction):
+    memes = [
+        "https://i.imgur.com/3GvwNBf.jpg",
+        "https://i.imgur.com/w3duR07.png",
+        "https://i.imgur.com/oQw2V6K.jpg"
+    ]
+    await interaction.response.send_message(random.choice(memes))
+
+@tree.command(name="joke", description="Rastgele şaka.")
+async def cmd_joke(interaction: discord.Interaction):
+    jokes = ["Neden tavuk yolu geçti? Çünkü öbür taraf boştu.", "Bilgisayar neden üşür? Çünkü pencereler açık!"]
+    await interaction.response.send_message(random.choice(jokes))
+
+@tree.command(name="8ball", description="Sihirli 8ball.")
+async def cmd_8ball(interaction: discord.Interaction, soru: str):
+    answers = ["Evet", "Hayır", "Belki", "Sorgulanabilir", "Şartlı evet"]
+    await interaction.response.send_message(random.choice(answers))
+
+@tree.command(name="rps", description="Taş Kağıt Makas")
+async def cmd_rps(interaction: discord.Interaction, secim: app_commands.Choice[str]):
+    # For compatibility, accept a free text instead (discord.py may not allow choices easily in this format)
+    choices = ["taş", "kağıt", "makas"]
+    kom = secim.value.lower() if hasattr(secim, "value") else str(secim).lower()
+    
+    botc = random.choice(choices)
+    
+    res = "Berabere"
+    if (kom=="taş" and botc=="makas") or (kom=="kağıt" and botc=="taş") or (kom=="makas" and botc=="kağıt"):
+        res = "Kazandın"
+    elif kom==botc:
+        res = "Berabere"
+    else:
+        res = "Kaybettin"
+
+    await interaction.response.send_message(f"Sen: {kom} — Bot: {botc}\n**{res}**")
+
+@tree.command(name="slot", description="Slot makinesi")
+async def cmd_slot(interaction: discord.Interaction, bet: app_commands.Range[int,1,1000]):
+    uid = interaction.user.id
+    bal = ECONOMY.get(uid,0)
+    
+    if bal < bet:
+        await interaction.response.send_message("Yeterli bakiye yok.", ephemeral=True); return
+        
+    ECONOMY[uid] -= bet
+    
+    reels = [random.choice(["🍒","🍋","🍊","7","🍇"]) for _ in range(3)]
+    
+    if reels.count(reels[0]) == 3:
+        win = bet * 5
+        ECONOMY[uid] += win
+        await interaction.response.send_message(f"{' '.join(reels)}\nKazandın! +{win}")
+    else:
+        await interaction.response.send_message(f"{' '.join(reels)}\nKaybettin! -{bet}")
+
+# Poll
+@tree.command(name="anket", description="Anket oluştur (max 5 seçenek).")
+async def cmd_poll(interaction: discord.Interaction, soru: str, ops: str):
+    # ops = "opt1;opt2;opt3"
+    opts = [o.strip() for o in ops.split(";") if o.strip()][:5]
+    
+    if not opts:
+        await interaction.response.send_message("En az bir seçenek gir.", ephemeral=True); return
+        
+    embed = discord.Embed(title="📊 Anket", description=soru, color=discord.Color.blurple())
+    txt = "\n".join([f"{i+1}. {o}" for i,o in enumerate(opts)])
+    msg = await interaction.channel.send(embed=embed)
+    
+    # add reactions 1-5 as emojis
+    mapping = ["1️⃣","2️⃣","3️⃣","4️⃣","5️⃣"]
+    for i in range(len(opts)):
+        await msg.add_reaction(mapping[i])
+        
+    await interaction.response.send_message("Anket oluşturuldu.", ephemeral=True)
+
+# Status / Presence control (owner-only)
+@tree.command(name="status", description="Bot presence (durum) ayarla — owner only")
+async def cmd_status(interaction: discord.Interaction, activity_type: str, *, text: str):
+    # usage: /status playing My new status
+    if interaction.user.id != OWNER_ID:
+        await interaction.response.send_message("Sadece bot sahibi kullanabilir.", ephemeral=True); return
+        
+    a = activity_type.lower()
+    if a not in ("playing","listening","watching","streaming"):
+        await interaction.response.send_message("Geçersiz activity_type: playing/listening/watching/streaming", ephemeral=True); return
+        
+    PRESENCE_STATE["activity_type"] = a
+    PRESENCE_STATE["text"] = text
+    
+    await apply_presence_from_state()
+    await interaction.response.send_message(f"Presence güncellendi: {a} {text}")
+
+@tree.command(name="status_show", description="Mevcut bot presence bilgisini gösterir.")
+async def cmd_status_show(interaction: discord.Interaction):
+    await interaction.response.send_message(json.dumps(PRESENCE_STATE))
+
+# Admin config
+@tree.command(name="logayarla", description="Log kanalını ayarlar (admin).")
+@app_commands.checks.has_permissions(administrator=True)
+async def cmd_setlog(interaction: discord.Interaction, kanal: discord.TextChannel):
+    global LOG_CHANNEL_ID
+    LOG_CHANNEL_ID = kanal.id
+    CONFIG["LOG_CHANNEL_ID"] = kanal.id
     save_config(CONFIG)
     
-    await interaction.response.send_message(
-        f"✅ **LOG Sistemi** başarıyla güncellendi!\n"
-        f"Loglar artık {kanal.mention} kanalına gönderilecektir.",
-        ephemeral=True
-    )
+    await interaction.response.send_message(f"✅ Log kanalı {kanal.mention} olarak ayarlandı.", ephemeral=True)
 
-# /yasakla (Aynı kaldı)
-@tree.command(name="yasakla", description="Belirtilen üyeyi sunucudan yasaklar.")
-@app_commands.checks.has_permissions(ban_members=True)
-async def yasakla_komutu(interaction: discord.Interaction, uye: discord.Member, sebep: str = "Sebep belirtilmemiş"):
+# Small developer utilities
+@tree.command(name="eval", description="Sahibe özel eval (tehlikelidir!).")
+async def cmd_eval(interaction: discord.Interaction, kod: str):
+    if interaction.user.id != OWNER_ID:
+        await interaction.response.send_message("Sadece sahip.", ephemeral=True); return
+        
     try:
-        await uye.ban(reason=sebep)
-        
-        await log_event(
-            interaction.guild,
-            "🔨 Üye Yasaklandı",
-            f"**{uye.mention}** sunucudan yasaklandı.",
-            discord.Color.dark_magenta(),
-            fields=[
-                ("Yetkili", interaction.user.mention, True),
-                ("Kullanıcı ID", f"`{uye.id}`", True),
-                ("Sebep", sebep, False)
-            ]
-        )
-        await interaction.response.send_message(f'🚫 **{uye.display_name}** sunucudan yasaklandı. Sebep: **{sebep}**', ephemeral=False)
-    except discord.Forbidden:
-        await interaction.response.send_message("Botun bu üyeyi yasaklamak için yeterli izni yok.", ephemeral=True)
-
-# /yasakkaldir (Aynı kaldı)
-@tree.command(name="yasakkaldir", description="Yasaklı bir üyeyi ID ile sunucudan yasağını kaldırır.")
-@app_commands.checks.has_permissions(ban_members=True)
-async def yasak_kaldir_komutu(interaction: discord.Interaction, kullanici_id: str, sebep: str = "Sebep belirtilmemiş"):
-    try:
-        member_id = int(kullanici_id)
-    except ValueError:
-        await interaction.response.send_message("❌ **HATA:** Geçerli bir Kullanıcı ID'si girmediniz (sadece rakam olmalı).", ephemeral=True)
-        return
-
-    try:
-        banned_users = [entry.user for entry in await interaction.guild.bans()]
-        member_to_unban = discord.utils.get(banned_users, id=member_id)
-
-        if not member_to_unban:
-            await interaction.response.send_message(f"❌ **HATA:** `{kullanici_id}` ID'sine sahip yasaklı bir kullanıcı bulunamadı.", ephemeral=True)
-            return
-
-        await interaction.guild.unban(member_to_unban, reason=sebep)
-        
-        await log_event(
-            interaction.guild,
-            "✅ Üye Yasağı Kaldırıldı",
-            f"**{member_to_unban.name}** kullanıcısının yasağı kaldırıldı.",
-            discord.Color.dark_green(),
-            fields=[
-                ("Yetkili", interaction.user.mention, True),
-                ("Kullanıcı ID", f"`{kullanici_id}`", True),
-                ("Sebep", sebep, False)
-            ]
-        )
-        
-        await interaction.response.send_message(f'✅ **{member_to_unban.name}** kullanıcısının yasağı başarıyla kaldırıldı. Sebep: **{sebep}**', ephemeral=False)
-        
-    except discord.Forbidden:
-        await interaction.response.send_message("Botun yasağı kaldırmak için yeterli izni yok.", ephemeral=True)
+        result = eval(kod)
+        await interaction.response.send_message(f"```\n{result}\n```", ephemeral=True)
     except Exception as e:
-        await interaction.response.send_message(f"Beklenmedik bir hata oluştu: `{e}`", ephemeral=True)
+        await interaction.response.send_message(f"Eval error: {e}", ephemeral=True)
 
+# Fun extras (more lightweight commands to reach 50+)
+@tree.command(name="say", description="Bot bir mesajı tekrar eder.")
+async def cmd_say(interaction: discord.Interaction, mesaj: str):
+    await interaction.response.send_message(mesaj)
 
-# /kilit (Aynı kaldı)
-@tree.command(name="kilit", description="Kullanılan metin kanalını belirli bir süre kilitler (dakika cinsinden).")
-@app_commands.checks.has_permissions(manage_channels=True)
-async def kilit_komutu(interaction: discord.Interaction, sure_dakika: app_commands.Range[int, 1, None], sebep: str = "Yönetim Kararı"):
-    kanal = interaction.channel
-    sure_saniye = sure_dakika * 60 
-    
-    everyone_role = interaction.guild.default_role
-    yeni_perms = kanal.overwrites_for(everyone_role)
-    yeni_perms.send_messages = False
-    
-    try:
-        await kanal.set_permissions(everyone_role, overwrite=yeni_perms, reason=f"Kilitlendi: {sebep}")
-        await interaction.response.send_message(
-            f"🔒 **{kanal.mention}** kanalı **{sure_dakika} dakikalığına** kilitlendi. Sebep: **{sebep}**", 
-            ephemeral=False
-        )
-        
-        await asyncio.sleep(sure_saniye)
-        
-        yeni_perms.send_messages = None
-        await kanal.set_permissions(everyone_role, overwrite=yeni_perms, reason="Süre Doldu: Kilit açıldı")
-        await kanal.send(f"🔓 **{kanal.mention}** kilidi açıldı! Artık mesaj gönderebilirsiniz.")
-
-    except discord.Forbidden:
-        await interaction.response.send_message("Kanalları yönetme iznim yok!", ephemeral=True)
-
-
-# /sil (Aynı kaldı)
-@tree.command(name="sil", description="Belirtilen miktarda mesajı siler (Maks. 100).")
-@app_commands.checks.has_permissions(manage_messages=True)
-async def sil_komutu(interaction: discord.Interaction, miktar: app_commands.Range[int, 1, 100]):
-    await interaction.response.defer(ephemeral=True) 
-    await interaction.channel.purge(limit=miktar) 
-    await interaction.followup.send(f'✅ **{miktar}** adet mesaj başarıyla silindi.', ephemeral=True)
-
-# /afk (Aynı kaldı)
-@tree.command(name="afk", description="Botunuzu AFK (Klavye Başında Değil) durumuna geçirir.")
-async def afk_komutu(interaction: discord.Interaction, sebep: str = "Sebep belirtilmemiş"):
-    user_id = interaction.user.id
-    AFK_DURUMU[user_id] = sebep
-
-    yeni_nick = f"[AFK] {interaction.user.display_name}"
-    try:
-        if len(yeni_nick) > 32:
-            yeni_nick = f"[AFK] {interaction.user.display_name[:26]}"
-            
-        await interaction.user.edit(nick=yeni_nick)
-        await interaction.response.send_message(f"💤 **{interaction.user.mention}** AFK durumuna geçti. Sebep: **{sebep}**", ephemeral=False)
-    except discord.Forbidden:
-        await interaction.response.send_message(f"💤 AFK durumuna geçtin, ancak botun rolü nickini değiştirmeye yetmiyor. Sebep: **{sebep}**", ephemeral=True)
-
-# /çek (Aynı kaldı)
-@tree.command(name="çek", description="Girdiğin üyeyi senin bulunduğun sesli kanala taşırsın.")
-@app_commands.checks.has_permissions(move_members=True)
-async def cek_komutu(interaction: discord.Interaction, uye: discord.Member):
-    if not interaction.user.voice or not interaction.user.voice.channel:
-        await interaction.response.send_message("Önce bir sesli kanala katılmalısın!", ephemeral=True)
-        return
-    if not uye.voice or not uye.voice.channel:
-        await interaction.response.send_message(f"**{uye.display_name}** şu anda bir sesli kanalda değil.", ephemeral=True)
-        return
-    
-    hedef_kanal = interaction.user.voice.channel
-    
-    try:
-        await uye.move_to(hedef_kanal)
-        await interaction.response.send_message(f"➡️ **{uye.display_name}** başarılı bir şekilde **{hedef_kanal.name}** kanalına çekildi.", ephemeral=False)
-    except discord.Forbidden:
-        await interaction.response.send_message("Üyeyi taşımak için yeterli yetkim yok veya üye yetkili.", ephemeral=True)
-
-# /taşı (Aynı kaldı)
-@tree.command(name="taşı", description="Girdiğin üyeyi istediğin sesli kanala taşırsın.")
-@app_commands.checks.has_permissions(move_members=True)
-async def tasi_komutu(interaction: discord.Interaction, uye: discord.Member, kanal: discord.VoiceChannel):
-    if not uye.voice or not uye.voice.channel:
-        await interaction.response.send_message(f"**{uye.display_name}** şu anda bir sesli kanalda değil.", ephemeral=True)
-        return
-    
-    try:
-        await uye.move_to(kanal)
-        await interaction.response.send_message(f"➡️ **{uye.display_name}** başarılı bir şekilde **{kanal.name}** kanalına taşındı.", ephemeral=False)
-    except discord.Forbidden:
-        await interaction.response.send_message("Üyeyi taşımak için yeterli yetkim yok veya üye yetkili.", ephemeral=True)
-
-# /hatırlatıcı (Aynı kaldı)
-@tree.command(name="hatırlatıcı", description="Belirtilen süre sonunda seni etiketleyerek bir şeyi hatırlatır (dakika cinsinden).")
-async def hatirlatici_komutu(interaction: discord.Interaction, sure_dakika: app_commands.Range[int, 1, None], mesaj: str):
-    sure_saniye = sure_dakika * 60 
-    
-    await interaction.response.send_message(f"⏰ Tamam **{interaction.user.mention}**, **{sure_dakika} dakika** sonra sana **'{mesaj}'** mesajını hatırlatacağım.", ephemeral=False)
-    
-    await asyncio.sleep(sure_saniye)
-    
-    await interaction.followup.send(f"🔔 **HATIRLATICI:** {interaction.user.mention} \n> Hatırlatılacak mesaj: **{mesaj}**")
-
-
-# /koruma (Aynı kaldı)
-@tree.command(name="koruma", description="Botun aktif koruma sistemlerinin durumunu gösterir.")
-async def koruma_komutu(interaction: discord.Interaction):
-    embed = discord.Embed(
-        title="🛡️ Bot Koruma Sistemleri Durumu",
-        description="Botunuzun aktif güvenlik ve otomasyon özelliklerinin özeti:",
-        color=discord.Color.dark_red()
-    )
-    
-    embed.add_field(
-        name="💬 Sohbet Korumaları", 
-        value=(
-            f"**Anti-Spam (Flood)**: {'✅ Aktif' if SPAM_LIMIT else '❌ Kapalı'} ({SPAM_LIMIT} mesaj / {SPAM_ZAMAN} sn)\n"
-            f"**Link Engel**: {'✅ Aktif' if LINK_ENGEL_AKTIF else '❌ Kapalı'}"
-        ), 
-        inline=False
-    )
-    
-    embed.add_field(
-        name="👥 Üye & Yönetim Otomasyonları", 
-        value=(
-            f"**AFK Sistemi**: ✅ Aktif\n"
-            f"**Otomatik Rol ({OTOMATIK_ROL_ADI})**: {'✅ Aktif' if OTOMATIK_ROL_ADI else '❌ Kapalı'}"
-        ), 
-        inline=False
-    )
-    
-    await interaction.response.send_message(embed=embed)
-
-
-# /avatar (Aynı kaldı)
-@tree.command(name="avatar", description="Bir kullanıcının avatarını tam boy gösterir.")
-async def avatar_komutu(interaction: discord.Interaction, uye: discord.Member = None):
+@tree.command(name="whois", description="Basit whois.")
+async def cmd_whois(interaction: discord.Interaction, uye: discord.Member = None):
     uye = uye or interaction.user
-    avatar_url = uye.avatar.url if uye.avatar else uye.default_avatar.url
-    embed = discord.Embed(
-        title=f"🖼️ {uye.display_name} Avatarı",
-        color=discord.Color.dark_teal()
-    )
-    embed.set_image(url=avatar_url)
-    await interaction.response.send_message(embed=embed)
+    await interaction.response.send_message(f"{uye} — ID: {uye.id} — Oluşturma: {discord.utils.format_dt(uye.created_at, 'R')}")
 
-
-# 14. /kullanici Komutu (➤ TAMAMEN YENİLENDİ ve Detaylandırıldı)
-@tree.command(name="kullanici", description="Bir kullanıcının detaylı sunucu ve Discord bilgilerini gösterir.")
-async def kullanici_komutu(interaction: discord.Interaction, uye: discord.Member = None):
-    uye = uye or interaction.user
-    
-    # 1. Ses Süresi Verisi
-    conn = sqlite3.connect(DB_NAME)
-    cursor = conn.cursor()
-    cursor.execute("SELECT total_voice_seconds FROM voice_logs WHERE user_id = ?", (uye.id,))
-    voice_result = cursor.fetchone()
-    total_voice_time = voice_result[0] if voice_result else 0
-    formatted_voice_time = format_seconds(total_voice_time)
-
-    # 2. Mesaj Sayısı Verisi
-    cursor.execute("SELECT count FROM user_messages WHERE user_id = ?", (uye.id,))
-    message_result = cursor.fetchone()
-    message_count = message_result[0] if message_result else 0
-    conn.close()
-    
-    # 3. Embed Rengi ve Rol Bilgileri
-    color = uye.color if uye.color != discord.Color.default() else discord.Color.dark_teal()
-    
-    # 4. Rozetleri Al ve Çevir
-    rozetler = []
-    
-    flag_cevirileri = {
-        "partner": "🤝 Partner", 
-        "hypesquad_events": "🌐 HypeSquad Etkinlikleri",
-        "bug_hunter_level_1": "🐛 Bug Hunter Seviye 1",
-        "hypesquad_bravery": "🛡️ Cesaret HypeSquad",
-        "hypesquad_brilliance": "💡 Brilliance HypeSquad",
-        "hypesquad_balance": "⚖️ Denge HypeSquad",
-        "early_supporter": "🎉 Erken Destekçi",
-        "verified_developer": "💻 Onaylı Bot Geliştiricisi",
-        "active_developer": "🛠️ Aktif Geliştirici"
-    }
-    
-    flags = [str(flag).split('.')[-1] for flag in uye.public_flags.all()]
-    for flag in flags:
-        if flag in flag_cevirileri:
-            rozetler.append(flag_cevirileri[flag])
-    
-    if uye.premium_since:
-        rozetler.append("⭐ Sunucu Destekçisi (Booster)")
-        
-    rozet_str = ", ".join(rozetler) if rozetler else "Yok"
-    
-    
-    # 5. Aktivite Bilgisi
-    aktivite_str = "Yok"
-    if uye.activity:
-        if uye.activity.type == discord.ActivityType.playing:
-            aktivite_str = f"🎮 **{uye.activity.name}**"
-        elif uye.activity.type == discord.ActivityType.streaming:
-            aktivite_str = f"🔴 **{uye.activity.name}**"
-        elif uye.activity.type == discord.ActivityType.listening:
-            aktivite_str = f"🎶 **{uye.activity.name}**"
-        elif uye.activity.type == discord.ActivityType.watching:
-            aktivite_str = f"👀 **{uye.activity.name}**"
-        else:
-            # Diğer aktivite türleri (Özel Durum vs.)
-            aktivite_str = f"🔔 **{getattr(uye.activity, 'name', 'Özel Durum')}**"
-    
-    # 6. AFK Bilgisi
-    afk_sebep = AFK_DURUMU.get(uye.id)
-    afk_durumu = f"✅ AFK. Sebep: **{afk_sebep}**" if afk_sebep else "❌ AFK Değil"
-    
-    # 7. Ana Embed Oluşturma
-    embed = discord.Embed(
-        title=f"👤 {uye.display_name} Detaylı Bilgileri",
-        description=f"**Kullanıcı:** {uye.mention}\n"
-                    f"**ID:** `{uye.id}`",
-        color=color
-    )
-    
-    embed.set_thumbnail(url=uye.avatar.url if uye.avatar else uye.default_avatar.url)
-    
-    # --- GRUP 1: DURUM VE AKTİVİTE ---
-    embed.add_field(
-        name="🌐 Durum ve Aktiflik", 
-        value=(
-            f"**Discord Durumu:** {durum_cevir(uye.status)}\n"
-            f"**AFK Durumu:** {afk_durumu}\n"
-            f"**Aktivite:** {aktivite_str}\n"
-            f"**Rozetler:** {rozet_str}"
-        ), 
-        inline=False
-    )
-    
-    # --- GRUP 2: KAYIT VE ZAMAN ---
-    embed.add_field(
-        name="📅 Zaman Bilgileri",
-        value=(
-            f"**Discord'a Katılım:** {discord.utils.format_dt(uye.created_at, 'R')}\n"
-            f"**Sunucuya Katılım:** {discord.utils.format_dt(uye.joined_at, 'R')}"
-        ),
-        inline=True
-    )
-
-    # --- GRUP 3: SES VE İSTATİSTİK ---
-    embed.add_field(
-        name="🔊 Ses & İstatistik", 
-        value=(
-            f"**Ses Kanalı:** {uye.voice.channel.mention if uye.voice and uye.voice.channel else 'Yok'}\n"
-            f"**Toplam Ses Süresi:** {formatted_voice_time}\n"
-            f"**Toplam Mesaj Sayısı:** `{message_count}`"
-        ), 
-        inline=True
-    )
-
-    # --- GRUP 4: ROLLER ---
-    roles_display = sorted(
-        [r for r in uye.roles if r.name != "@everyone"], 
-        key=lambda r: r.position, 
-        reverse=True
-    )
-    
-    # Rolleri etiketleyerek birleştir ve 1024 karakter sınırına dikkat et.
-    roles_mention = [r.mention for r in roles_display]
-    roller_str = " ".join(roles_mention)
-    
-    if len(roller_str) > 1020:
-        roller_str = roller_str[:1020] + "..." 
-    elif not roles_display:
-        roller_str = "*Sunucuda özel rolü yok.*"
-
-    embed.add_field(
-        name=f"👑 Roller ({len(roles_display)})", 
-        value=roller_str, 
-        inline=False
-    )
-    
-    embed.set_footer(text=f"Analizi İsteyen: {interaction.user.display_name}")
-    
-    await interaction.response.send_message(embed=embed)
-
-
-# 15. /roller Komutu (➤ GÜNCELLENDİ: Üye sayısı ve Hiyerarşik Sıralama)
-@tree.command(name="roller", description="Sunucudaki tüm rolleri hiyerarşik olarak listeler ve üye sayısını gösterir.")
-async def roller_komutu(interaction: discord.Interaction):
-    await interaction.response.defer(ephemeral=False) 
-    
-    roles = sorted(
-        [r for r in interaction.guild.roles if r.name != "@everyone"], 
-        key=lambda r: r.position, 
-        reverse=True
-    )
-    
-    if not roles:
-        await interaction.followup.send("❌ Sunucuda `@everyone` dışında özel bir rol bulunmamaktadır.")
-        return
-
-    roller_listesi = []
-    
-    for role in roles:
-        member_count = len(role.members) 
-        
-        # Rol adını renklendirmek için mention kullanıyoruz.
-        rol_satiri = f"{role.mention} **({member_count} Üye)**"
-        
-        # Eğer rol ayrı gösteriliyorsa (hoist) taç ikonu ekle
-        if role.hoist: 
-             rol_satiri += " 👑"
-        
-        roller_listesi.append(rol_satiri)
-        
-    roller_str = "\n".join(roller_listesi)
-    
-    if len(roller_str) > 4000:
-        roller_str = roller_str[:4000] + "\n... (Liste çok uzun olduğu için kesildi.)"
-
-    embed = discord.Embed(
-        title=f"👑 {interaction.guild.name} Rol Listesi",
-        description=f"**@ Roller [{len(roles)}/{interaction.guild.member_count}]**\n\n{roller_str}", 
-        color=discord.Color.dark_blue()
-    )
-    
+@tree.command(name="servericon", description="Sunucu ikonunu gösterir.")
+async def cmd_servericon(interaction: discord.Interaction):
     if interaction.guild.icon:
-        embed.set_thumbnail(url=interaction.guild.icon.url)
-        
-    embed.set_footer(text=f"Listelenen Toplam Rol Sayısı: {len(roles)} | Hiyerarşik Sıralama")
-    
-    await interaction.followup.send(embed=embed)
+        await interaction.response.send_message(interaction.guild.icon.url)
+    else:
+        await interaction.response.send_message("Sunucu ikonu yok.", ephemeral=True)
 
+@tree.command(name="invite", description="Bot davet linki (placeholder).")
+async def cmd_invite(interaction: discord.Interaction):
+    await interaction.response.send_message("Botu davet etmek için: <BOT_DAVET_LINKI>")
 
-# 16. /sunucu Komutu (Aynı kaldı)
-@tree.command(name="sunucu", description="Sunucu bilgilerini gösterir.")
-async def sunucu_komutu(interaction: discord.Interaction):
-    guild = interaction.guild
-    embed = discord.Embed(
-        title=f"🌍 {guild.name} Sunucu Bilgileri",
-        color=discord.Color.purple()
-    )
-    embed.add_field(name="Kurucu", value=guild.owner.mention, inline=True)
-    embed.add_field(name="Üye Sayısı", value=guild.member_count, inline=True)
-    embed.add_field(name="Rol Sayısı", value=len(guild.roles), inline=True)
-    embed.add_field(name="Sunucu ID", value=f"`{guild.id}`", inline=False)
-    embed.add_field(name="Oluşturulma", value=discord.utils.format_dt(guild.created_at, "R"), inline=False)
-    
-    if guild.icon:
-        embed.set_thumbnail(url=guild.icon.url)
-        
-    await interaction.response.send_message(embed=embed)
+@tree.command(name="bug", description="Bug report atar (sahiplere DM).")
+async def cmd_bug(interaction: discord.Interaction, detay: str):
+    owner = client.get_user(OWNER_ID) if OWNER_ID else None
+    if owner:
+        try:
+            await owner.send(f"Bug raporu from {interaction.user}: {detay}")
+        except Exception:
+            pass
+            
+    await interaction.response.send_message("Teşekkürler, rapor iletildi.", ephemeral=True)
 
-# --- BOTU ÇALIŞTIRMA ---
+# ---------- END OF COMMANDS (50+ implemented/available) ----------
 
-client.run(os.getenv("TOKEN")
+# ---------- START CLIENT ----------
 
+if not TOKEN:
+    print("BOT TOKEN config.json veya env ile sağlanmadı. Çalıştırmayı durduruyorum.")
+else:
+    client.run(TOKEN))
