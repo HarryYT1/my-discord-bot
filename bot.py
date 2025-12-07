@@ -70,6 +70,7 @@ VOICE_JOIN_TIMES = {}
 CEKILIS_EMOJI = "🎉"
 
 # --- CLIENT VE TREE TANIMLAMA ---
+# Presence Intent ve Server Members Intent'in Discord Developer Portal'da açık olduğundan emin olun.
 intents = discord.Intents.all()
 client = discord.Client(intents=intents)
 tree = app_commands.CommandTree(client)
@@ -150,7 +151,10 @@ async def check_afk_status(member: discord.Member, channel: discord.TextChannel 
     if user_id in AFK_DURUMU:
         try:
             del AFK_DURUMU[user_id]
+            # [AFK] etiketini sadece sunucudaki takma addan (nick) kaldır.
             display_name_clean = member.display_name.replace('[AFK] ', '')
+            
+            # Nick uzunluğu kontrolü (32 karakterden fazla olamaz)
             if len(display_name_clean) > 32:
                  display_name_clean = display_name_clean[:32]
                  
@@ -700,7 +704,7 @@ async def sil_komutu(interaction: discord.Interaction, miktar: app_commands.Rang
     await interaction.channel.purge(limit=miktar) 
     await interaction.followup.send(f'✅ **{miktar}** adet mesaj başarıyla silindi.', ephemeral=True)
 
-# 7. /afk Komutu (Halka açık olması için ephemeral=False bırakılmıştır)
+# 7. /afk Komutu 
 @tree.command(name="afk", description="Botunuzu AFK (Klavye Başında Değil) durumuna geçirir.")
 async def afk_komutu(interaction: discord.Interaction, sebep: str = "Sebep belirtilmemiş"):
     user_id = interaction.user.id
@@ -801,7 +805,7 @@ async def avatar_komutu(interaction: discord.Interaction, uye: discord.Member):
     embed.set_image(url=avatar_url)
     await interaction.response.send_message(embed=embed, ephemeral=True)
 
-# 13. /kullanici Komutu (YENİLENDİ: Detaylı ve Görseldeki Gibi Analiz)
+# 13. /kullanici Komutu (YENİLENDİ: Görseldeki Gibi Detaylı, Renkli ve Düzenli Analiz)
 @tree.command(name="kullanici", description="Bir kullanıcının detaylı sunucu ve Discord bilgilerini gösterir.")
 async def kullanici_komutu(interaction: discord.Interaction, uye: discord.Member = None):
     # Kullanıcı belirtilmezse komutu kullananı kullan
@@ -819,79 +823,119 @@ async def kullanici_komutu(interaction: discord.Interaction, uye: discord.Member
     
     # 2. Embed Rengi ve Rol Bilgileri
     # En yüksek rolün rengini kullan. Eğer renk yoksa (default), yeşil kullan.
-    color = uye.color if uye.color != discord.Color.default() else discord.Color.green()
+    color = uye.color if uye.color != discord.Color.default() else discord.Color.dark_teal()
     
-    # Rolleri hiyerarşik olarak sıralayıp listeleyelim (@everyone hariç)
+    # 3. Rozetleri Al (Emoji ID'leri Discord Sunucunuzdan alınan güncel ID'ler olmalıdır.)
+    rozetler = []
+    
+    # Bu kısmı sadece bilgi amaçlı ekledik. Canlı sunucunuzda bu emoji ID'lerini doğru şekilde ayarlamanız gerekir.
+    flag_cevirileri = {
+        "partner": "🤝 Partner", 
+        "hypesquad_events": "🌐 HypeSquad Etkinlikleri",
+        "bug_hunter_level_1": "🐛 Bug Hunter Seviye 1",
+        "hypesquad_bravery": "🛡️ Cesaret HypeSquad",
+        "hypesquad_brilliance": "💡 Brilliance HypeSquad",
+        "hypesquad_balance": "⚖️ Denge HypeSquad",
+        "early_supporter": "🎉 Erken Destekçi",
+        "verified_developer": "💻 Onaylı Bot Geliştiricisi",
+        "active_developer": "🛠️ Aktif Geliştirici"
+    }
+    
+    flags = [str(flag).split('.')[-1] for flag in uye.public_flags.all()]
+    for flag in flags:
+        if flag in flag_cevirileri:
+            rozetler.append(flag_cevirileri[flag])
+    
+    if uye.premium_since:
+        rozetler.append("⭐ Sunucu Destekçisi (Booster)")
+        
+    rozet_str = ", ".join(rozetler) if rozetler else "Yok"
+    
+    
+    # 4. Aktivite Bilgisi
+    aktivite_str = "Yok"
+    if uye.activity:
+        if uye.activity.type == discord.ActivityType.playing:
+            aktivite_str = f"🎮 **{uye.activity.name}**"
+        elif uye.activity.type == discord.ActivityType.streaming:
+            aktivite_str = f"🔴 **{uye.activity.name}**"
+        elif uye.activity.type == discord.ActivityType.listening:
+            aktivite_str = f"🎶 **{uye.activity.name}**"
+        elif uye.activity.type == discord.ActivityType.watching:
+            aktivite_str = f"👀 **{uye.activity.name}**"
+        else:
+            aktivite_str = f"🔔 **{uye.activity.name}**"
+    
+    # 5. AFK Bilgisi
+    afk_sebep = AFK_DURUMU.get(uye.id)
+    afk_durumu = f"✅ AFK. Sebep: **{afk_sebep}**" if afk_sebep else "❌ AFK Değil"
+    
+    # 6. Ana Embed Oluşturma
+    embed = discord.Embed(
+        title=f"👤 {uye.display_name} Detaylı Bilgileri",
+        description=f"**Kullanıcı:** {uye.mention}\n"
+                    f"**ID:** `{uye.id}`",
+        color=color
+    )
+    
+    embed.set_thumbnail(url=uye.avatar.url if uye.avatar else uye.default_avatar.url)
+    
+    # --- GRUP 1: DURUM VE AKTİVİTE ---
+    embed.add_field(
+        name="🌐 Durum ve Aktiflik", 
+        value=(
+            f"**Discord Durumu:** {durum_cevir(uye.status)}\n"
+            f"**AFK Durumu:** {afk_durumu}\n"
+            f"**Aktivite:** {aktivite_str}\n"
+            f"**Rozetler:** {rozet_str}"
+        ), 
+        inline=False
+    )
+    
+    # --- GRUP 2: KAYIT VE ZAMAN ---
+    embed.add_field(
+        name="📅 Zaman Bilgileri",
+        value=(
+            f"**Discord'a Katılım:** {discord.utils.format_dt(uye.created_at, 'R')}\n"
+            f"**Sunucuya Katılım:** {discord.utils.format_dt(uye.joined_at, 'R')}"
+        ),
+        inline=True
+    )
+
+    # --- GRUP 3: SES VE İSTATİSTİK ---
+    embed.add_field(
+        name="🔊 Ses & İstatistik", 
+        value=(
+            f"**Ses Kanalı:** {uye.voice.channel.mention if uye.voice and uye.voice.channel else 'Yok'}\n"
+            f"**Toplam Ses Süresi:** {formatted_voice_time}\n"
+            f"**Mesaj/Davet Sayısı:** `Veri Yok`"
+        ), 
+        inline=True
+    )
+
+    # --- GRUP 4: ROLLER ---
     roller = sorted(
         [r for r in uye.roles if r.name != "@everyone"], 
         key=lambda r: r.position, 
         reverse=True
     )
-    # Rol isimlerini al ve 1024 karakter sınırına kadar birleştir
-    roller_isimleri = ", ".join([r.mention for r in roller])
-    roller_str = roller_isimleri[:1020] + "..." if len(roller_isimleri) > 1020 else roller_isimleri
+    roller_str = " ".join([r.mention for r in roller])
     
-    # 3. AFK ve Ses Durumu
-    afk_sebep = AFK_DURUMU.get(uye.id)
-    afk_durumu = f"✅ AFK. Sebep: **{afk_sebep}**" if afk_sebep else "❌ AFK Değil"
-    
-    ses_kanali = uye.voice.channel.mention if uye.voice and uye.voice.channel else "Yok"
-    
-    
-    embed = discord.Embed(
-        title=f"👤 {uye.display_name} Kullanıcı Profili",
-        description=f"**Kullanıcı Adı:** {uye.mention}\n"
-                    f"**ID:** `{uye.id}`",
-        color=color
-    )
-    
-    # Alan 1: Durum Bilgileri
     embed.add_field(
-        name="Durum ve Aktivite", 
-        value=(
-            f"**Discord Durumu:** {durum_cevir(uye.status)}\n"
-            f"**AFK Durumu:** {afk_durumu}"
-        ), 
-        inline=True
-    )
-    
-    # Alan 2: Ses Bilgisi
-    embed.add_field(
-        name="Ses Kanalı", 
-        value=(
-            f"**Anlık Kanal:** {ses_kanali}\n"
-            f"**Toplam Ses Süresi:** {formatted_voice_time}"
-        ), 
-        inline=True
-    )
-
-    # Alan 3: Kayıt Bilgileri
-    embed.add_field(
-        name="Kayıt Tarihleri",
-        value=(
-            f"**Sunucuya Katılım:** {discord.utils.format_dt(uye.joined_at, 'R')}\n"
-            f"**Discord'a Katılım:** {discord.utils.format_dt(uye.created_at, 'R')}"
-        ),
+        name=f"👑 Roller ({len(roller)})", 
+        value=roller_str[:1020] + "..." if len(roller_str) > 1020 else roller_str, 
         inline=False
     )
     
-    # Alan 4: Roller
-    embed.add_field(
-        name=f"Roller ({len(roller)})", 
-        value=roller_str if roller_str else "Yok", 
-        inline=False
-    )
-    
-    embed.set_thumbnail(url=uye.avatar.url if uye.avatar else uye.default_avatar.url)
     embed.set_footer(text=f"Analizi İsteyen: {interaction.user.display_name}")
     
-    await interaction.response.send_message(embed=embed, ephemeral=True)
+    await interaction.response.send_message(embed=embed)
 
 
-# 14. /roller Komutu (Sade ve Hiyerarşik)
+# 14. /roller Komutu 
 @tree.command(name="roller", description="Sunucudaki tüm rolleri hiyerarşik olarak listeler ve üye sayısını gösterir.")
 async def roller_komutu(interaction: discord.Interaction):
-    await interaction.response.defer(ephemeral=True) 
+    await interaction.response.defer(ephemeral=False) 
     
     roles = sorted(
         [r for r in interaction.guild.roles if r.name != "@everyone"], 
@@ -900,7 +944,7 @@ async def roller_komutu(interaction: discord.Interaction):
     )
     
     if not roles:
-        await interaction.followup.send("❌ Sunucuda `@everyone` dışında özel bir rol bulunmamaktadır.", ephemeral=True)
+        await interaction.followup.send("❌ Sunucuda `@everyone` dışında özel bir rol bulunmamaktadır.")
         return
 
     roller_listesi = []
@@ -908,10 +952,11 @@ async def roller_komutu(interaction: discord.Interaction):
     for i, role in enumerate(roles):
         member_count = len(role.members) 
         
-        rol_satiri = f"**{i+1}.** {role.mention} **({member_count} Üye)**"
+        # Rol adını renklendirmek için mention kullanıyoruz.
+        rol_satiri = f"{role.mention} **({member_count} Üye)**"
         
-        if role.managed and role.hoist:
-             rol_satiri += " `[Bot]`"
+        if role.hoist: 
+             rol_satiri += " 👑"
         
         roller_listesi.append(rol_satiri)
         
@@ -922,13 +967,17 @@ async def roller_komutu(interaction: discord.Interaction):
 
     embed = discord.Embed(
         title=f"👑 {interaction.guild.name} Rol Listesi",
-        description=roller_str, 
+        description=f"**@ Roller [{len(roles)}/{interaction.guild.member_count}]**\n\n{roller_str}", 
         color=discord.Color.dark_blue()
     )
     
-    embed.set_footer(text=f"Toplam Rol Sayısı: {len(roles)} | Hiyerarşik Sıralama")
+    if interaction.guild.icon:
+        embed.set_thumbnail(url=interaction.guild.icon.url)
+        
+    embed.set_footer(text=f"Listelenen Toplam Rol Sayısı: {len(roles)} | Hiyerarşik Sıralama")
     
-    await interaction.followup.send(embed=embed, ephemeral=True)
+    await interaction.followup.send(embed=embed)
+
 
 # 15. /sunucu Komutu 
 @tree.command(name="sunucu", description="Sunucu bilgilerini gösterir.")
