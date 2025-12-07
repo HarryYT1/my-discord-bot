@@ -1027,4 +1027,5 @@ async def sunucu_komutu(interaction: discord.Interaction):
 
 # --- BOTU ÇALIŞTIRMA ---
 
-client.run(os.getenv("TOKEN"))
+client.run(os.getenv("TOKEN")
+
