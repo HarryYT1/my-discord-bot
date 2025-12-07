@@ -4,7 +4,7 @@ from discord import app_commands
 import datetime
 import asyncio 
 import json 
-import os # Ortam değişkenlerinden TOKEN çekmek için eklendi (Replit/Hosting için önerilir)
+import os 
 import sqlite3 
 import random 
 
@@ -46,7 +46,7 @@ def setup_db():
             PRIMARY KEY (message_id, user_id)
         )
     """)
-    # Geliştirme: Kullanıcı mesaj sayısını takip etmek için tablo (Şimdilik boş)
+    # Kullanıcı mesaj sayısını takip etmek için tablo
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS user_messages (
             user_id INTEGER PRIMARY KEY,
@@ -63,9 +63,9 @@ SPAM_TAKIP = {}
 SPAM_LIMIT = 5   
 SPAM_ZAMAN = 5   
 LINK_ENGEL_AKTIF = True 
-
+# Railway Ortam Değişkeni kullanıldığı için TOKEN değişkeni burada tanımlanmadı.
 OTOMATIK_ROL_ADI = "Üye" 
-AFK_DURUMU = {} # {user_id: sebep, ...}
+AFK_DURUMU = {} 
 YASAKLI_LINKLER = ['discord.gg', 'http://', 'https://', '.com', '.net', '.org'] 
 
 VOICE_JOIN_TIMES = {} 
@@ -84,14 +84,12 @@ class CekilisKatilim(discord.ui.View):
         self.prize = prize
         self.winner_count = winner_count
 
-    # Katıl düğmesi
     @discord.ui.button(label="🎉 Çekilişe Katıl", style=discord.ButtonStyle.green, custom_id="katil_button")
     async def katil_callback(self, interaction: discord.Interaction, button: discord.ui.Button):
         user_id = interaction.user.id
         conn = sqlite3.connect(DB_NAME)
         cursor = conn.cursor()
         
-        # Kullanıcının daha önce katılıp katılmadığını kontrol et
         cursor.execute(
             "SELECT * FROM giveaway_participants WHERE message_id = ? AND user_id = ?",
             (self.message_id, user_id)
@@ -99,19 +97,16 @@ class CekilisKatilim(discord.ui.View):
         is_participating = cursor.fetchone()
         
         if is_participating:
-            # Zaten katılmışsa
             await interaction.response.send_message(
                 "❌ Zaten bu çekilişe katılmışsın!", 
                 ephemeral=True
             )
         else:
-            # Yeni katılımcıyı kaydet
             cursor.execute(
                 "INSERT INTO giveaway_participants (message_id, user_id) VALUES (?, ?)",
                 (self.message_id, user_id)
             )
             conn.commit()
-            # Başarılı katılım mesajı (ephemeral)
             await interaction.response.send_message(
                 f"✅ **{self.prize}** çekilişine başarıyla katıldın!", 
                 ephemeral=True
@@ -157,23 +152,19 @@ async def check_afk_status(member: discord.Member, channel: discord.TextChannel 
     if user_id in AFK_DURUMU:
         try:
             del AFK_DURUMU[user_id]
-            # Nick düzeltme
             display_name_clean = member.display_name.replace('[AFK] ', '')
             if len(display_name_clean) > 32:
-                 # Eğer düzeltilmiş nick 32 karakteri aşıyorsa, Discord'un izin verdiği maksimum uzunluğa kes
                  display_name_clean = display_name_clean[:32]
                  
             await member.edit(nick=display_name_clean)
             
             if channel:
-                # AFK'dan çıkış mesajı herkese gösterilebilir.
                 await channel.send(f"👋 **{member.mention}**, AFK durumundan başarıyla çıktın.", delete_after=5)
             return True
         except Exception:
             return False
     return False
 
-# --- MERKEZİ LOG FONKSİYONU ---
 async def log_event(guild, title, description, color, fields=None):
     log_id = CONFIG.get("LOG_KANAL_ID") 
     if not log_id:
@@ -212,7 +203,6 @@ async def on_ready():
     setup_db() 
     await tree.sync() 
 
-    # BOT DURUMU AYARI
     await client.change_presence(
         activity=discord.Game("𝐌𝐲 𝐁𝐨𝐬𝐬 𝐇𝐚𝐫𝐫𝐲"), 
         status=discord.Status.online
@@ -223,14 +213,10 @@ async def on_ready():
     print('----------------------------------')
     print('TÜM SLASH KOMUTLARI VE VERİTABANI BAŞARIYLA HAZIRLANDI.')
 
-# --- KOMUT HATA YAKALAYICI ---
 @tree.error 
 async def on_tree_error(interaction: discord.Interaction, error: app_commands.AppCommandError):
-    # 1. Eksik İzinler Hatası (Missing Permissions)
     if isinstance(error, app_commands.MissingPermissions) or isinstance(error, app_commands.MissingAnyPermissions):
-        
         if not interaction.response.is_done():
-            # Hata mesajı her zaman sadece yetkiliye (ephemeral) gösterilmelidir.
             await interaction.response.send_message(
                 "❌ **HATA:** Bu komutu kullanmaya yetkin yok!", 
                 ephemeral=True
@@ -242,7 +228,6 @@ async def on_tree_error(interaction: discord.Interaction, error: app_commands.Ap
             )
         return
     
-    # 2. Genel Hata Durumu (Diğer hatalar)
     print(f"Komut çalıştırılırken beklenmedik bir hata oluştu: {error}")
     
     if not interaction.response.is_done():
@@ -254,11 +239,8 @@ async def on_tree_error(interaction: discord.Interaction, error: app_commands.Ap
         except Exception:
             pass 
 
-# 1. Üye Katılım/Ayrılma Logları ve Otomatik Rol
-# (Bu olaylar loglama yaptığı için değiştirilmedi)
 @client.event
 async def on_member_join(member):
-    # Otomatik Rol Verme
     try:
         role = discord.utils.get(member.guild.roles, name=OTOMATIK_ROL_ADI)
         if role:
@@ -266,7 +248,6 @@ async def on_member_join(member):
     except discord.Forbidden:
         pass
         
-    # LOG: Üye Katıldı
     fields = [
         ("Kullanıcı ID", f"`{member.id}`", True),
         ("Discord Kayıt Tarihi", discord.utils.format_dt(member.created_at, "R"), False)
@@ -281,7 +262,6 @@ async def on_member_join(member):
 
 @client.event
 async def on_member_remove(member):
-    # LOG: Üye Ayrıldı
     fields = [
         ("Kullanıcı ID", f"`{member.id}`", True),
         ("Sunucuda Kalma Süresi", f"{(datetime.datetime.now(datetime.timezone.utc) - member.joined_at).days} Gün", False)
@@ -294,9 +274,6 @@ async def on_member_remove(member):
         fields=fields
     )
 
-
-# 2. Mesaj Silme/Düzenleme Logları
-# (Bu olaylar loglama yaptığı için değiştirilmedi)
 @client.event
 async def on_message_delete(message):
     if message.author.bot or not message.guild:
@@ -331,22 +308,17 @@ async def on_message_edit(before, after):
         ]
     )
     
-# 3. Sesli Kanal Logları ve AFK Kapanması
-# (Bu olaylar loglama yaptığı için değiştirilmedi)
 @client.event
 async def on_voice_state_update(member, before, after):
-    # AFK Kontrolü
     if before.channel is not None or after.channel is not None:
         await check_afk_status(member)
         
-    # LOG & DB Mantığı
     conn = sqlite3.connect(DB_NAME)
     cursor = conn.cursor()
     now = datetime.datetime.now(datetime.timezone.utc)
     
     user_id = member.id
     
-    # 1. Kanala Katıldı
     if before.channel is None and after.channel is not None:
         VOICE_JOIN_TIMES[user_id] = now
         await log_event(
@@ -357,7 +329,6 @@ async def on_voice_state_update(member, before, after):
             fields=[("Kullanıcı ID", f"`{user_id}`", False)]
         )
     
-    # 2. Kanaldan Ayrıldı
     elif before.channel is not None and after.channel is None:
         duration = 0
         if user_id in VOICE_JOIN_TIMES:
@@ -388,7 +359,6 @@ async def on_voice_state_update(member, before, after):
                 discord.Color.dark_blue(),
             )
 
-    # 3. Kanal Değiştirdi
     elif before.channel is not None and after.channel is not None and before.channel != after.channel:
         duration = 0
         if user_id in VOICE_JOIN_TIMES:
@@ -416,9 +386,6 @@ async def on_voice_state_update(member, before, after):
     
     conn.close()
 
-
-# 4. Anti-Spam, AFK Geri Dönüş ve Link Engel Sistemi (on_message event'i)
-# (Bu olaylar loglama yaptığı için değiştirilmedi)
 @client.event
 async def on_message(message):
     global SPAM_TAKIP, AFK_DURUMU
@@ -426,17 +393,13 @@ async def on_message(message):
     if message.author.bot:
         return
 
-    # A) AFK Kapanması (Yazı yazdığında)
     await check_afk_status(message.author, message.channel)
 
-    # B) AFK Etiketleme Kontrolü
     for user_id_afk, sebep in AFK_DURUMU.items():
         if client.get_user(user_id_afk) in message.mentions:
             afk_kullanici = client.get_user(user_id_afk)
             await message.channel.send(f"💤 **{afk_kullanici.mention}** şu anda AFK. Sebep: **{sebep}**", delete_after=10)
 
-
-    # C) Link Engel Kontrolü
     if LINK_ENGEL_AKTIF:
         mesaj_icerigi = message.content.lower()
         if any(link in mesaj_icerigi for link in YASAKLI_LINKLER) and not message.author.guild_permissions.manage_messages:
@@ -446,7 +409,6 @@ async def on_message(message):
             except discord.Forbidden:
                 pass
 
-    # D) Anti-Spam Kontrolü (Log Kaydı Mevcut)
     user_id = message.author.id
     current_time = message.created_at.timestamp()
     
@@ -460,7 +422,7 @@ async def on_message(message):
         try:
             await message.author.timeout(datetime.timedelta(minutes=60), reason="Spam yapma")
             
-            await log_event( # Loglama fonksiyonu çalışır
+            await log_event(
                 message.guild,
                 "🛡️ Otomatik Susturma (Anti-Spam)",
                 f"**{message.author.mention}** spam yaptığı için otomatik olarak 60 dakika susturuldu.",
@@ -484,7 +446,7 @@ async def on_message(message):
 
 # --- SLASH KOMUTLARI (COMMANDS) ---
 
-# /yardım (GÜNCELLENDİ: ephemeral=True)
+# /yardım (Ephemeral)
 @tree.command(name="yardım", description="Botun tüm komutlarını kategorilere ayrılmış bir şekilde gösterir.")
 async def yardim_komutu(interaction: discord.Interaction):
     embed = discord.Embed(
@@ -525,11 +487,10 @@ async def yardim_komutu(interaction: discord.Interaction):
     )
 
     embed.set_footer(text="Komutları kullanmak için sohbet kutusuna '/' yazın.")
-    # Sadece komutu kullanan görecek
     await interaction.response.send_message(embed=embed, ephemeral=True)
 
 
-# 1. /çekiliş (Zaten ephemeral=True)
+# 1. /çekiliş 
 @tree.command(name="çekiliş", description="Yeni bir çekiliş başlatır.")
 @app_commands.checks.has_permissions(manage_guild=True)
 async def cekilis_komutu(
@@ -551,12 +512,10 @@ async def cekilis_komutu(
     embed.add_field(name="⏰ Bitiş Zamanı", value=discord.utils.format_dt(end_time, "R"), inline=True)
     embed.set_footer(text=f"Başlatan: {interaction.user.display_name}")
     
-    # Komutun başarılı başlatıldığını kullanıcıya bildir (ephemeral)
     await interaction.response.send_message(f"✅ Çekiliş **{channel.mention}** kanalında başlatıldı!", ephemeral=True)
     
-    # Çekiliş mesajını, düğmesi ile birlikte gönder (Bu mesaj HERKESİN GÖRMESİ GEREKEN ANA MESAJDIR)
     view = CekilisKatilim(
-        message_id=0, # Geçici değer
+        message_id=0,
         prize=ödül, 
         winner_count=kazanan_sayisi,
         timeout=süre_dakika * 60 
@@ -567,14 +526,11 @@ async def cekilis_komutu(
         view=view
     )
     
-    # Mesaj ID'sini view'a kaydetmek için view'ı güncelle
     view.message_id = cekilis_mesaj.id
     await cekilis_mesaj.edit(view=view)
     
-    # Süre dolana kadar bekle
     await asyncio.sleep(süre_dakika * 60)
     
-    # Çekilişi sonlandırma (Loglama ve Kazanan Seçimi kısmı değiştirilmedi)
     conn = sqlite3.connect(DB_NAME)
     cursor = conn.cursor()
     
@@ -631,7 +587,7 @@ async def cekilis_komutu(
         await guncel_mesaj.edit(embed=bitis_embed, view=None)
 
 
-# 2. /logayarla (Zaten ephemeral=True)
+# 2. /logayarla (Ephemeral)
 @tree.command(name="logayarla", description="Log kanalını belirler.")
 @app_commands.checks.has_permissions(administrator=True)
 async def log_ayarla_komutu(interaction: discord.Interaction, kanal: discord.TextChannel):
@@ -646,7 +602,7 @@ async def log_ayarla_komutu(interaction: discord.Interaction, kanal: discord.Tex
         ephemeral=True
     )
 
-# 3. /yasakla Komutu (GÜNCELLENDİ: ephemeral=True)
+# 3. /yasakla Komutu (Ephemeral)
 @tree.command(name="yasakla", description="Belirtilen üyeyi sunucudan yasaklar.")
 @app_commands.checks.has_permissions(ban_members=True)
 async def yasakla_komutu(interaction: discord.Interaction, uye: discord.Member, sebep: str = "Sebep belirtilmemiş"):
@@ -664,12 +620,11 @@ async def yasakla_komutu(interaction: discord.Interaction, uye: discord.Member, 
                 ("Sebep", sebep, False)
             ]
         )
-        # Sadece komutu kullanan görecek
         await interaction.response.send_message(f'✅ **{uye.display_name}** sunucudan yasaklandı. Sebep: **{sebep}**', ephemeral=True)
     except discord.Forbidden:
         await interaction.response.send_message("Botun bu üyeyi yasaklamak için yeterli izni yok.", ephemeral=True)
 
-# 4. /yasakkaldir (GÜNCELLENDİ: ephemeral=True)
+# 4. /yasakkaldir (Ephemeral)
 @tree.command(name="yasakkaldir", description="Yasaklı bir üyeyi ID ile sunucudan yasağını kaldırır.")
 @app_commands.checks.has_permissions(ban_members=True)
 async def yasak_kaldir_komutu(interaction: discord.Interaction, kullanici_id: str, sebep: str = "Sebep belirtilmemiş"):
@@ -701,7 +656,6 @@ async def yasak_kaldir_komutu(interaction: discord.Interaction, kullanici_id: st
             ]
         )
         
-        # Sadece komutu kullanan görecek
         await interaction.response.send_message(f'✅ **{member_to_unban.name}** kullanıcısının yasağı başarıyla kaldırıldı. Sebep: **{sebep}**', ephemeral=True)
         
     except discord.Forbidden:
@@ -710,7 +664,7 @@ async def yasak_kaldir_komutu(interaction: discord.Interaction, kullanici_id: st
         await interaction.response.send_message(f"Beklenmedik bir hata oluştu: `{e}`", ephemeral=True)
 
 
-# 5. /kilit Komutu (GÜNCELLENDİ: ephemeral=True)
+# 5. /kilit Komutu (Ephemeral)
 @tree.command(name="kilit", description="Kullanılan metin kanalını belirli bir süre kilitler (dakika cinsinden).")
 @app_commands.checks.has_permissions(manage_channels=True)
 async def kilit_komutu(interaction: discord.Interaction, sure_dakika: app_commands.Range[int, 1, None], sebep: str = "Yönetim Kararı"):
@@ -724,12 +678,10 @@ async def kilit_komutu(interaction: discord.Interaction, sure_dakika: app_comman
     try:
         await kanal.set_permissions(everyone_role, overwrite=yeni_perms, reason=f"Kilitlendi: {sebep}")
         
-        # Sadece komutu kullanan görecek
         await interaction.response.send_message(
             f"✅ **{kanal.mention}** kanalı **{sure_dakika} dakikalığına** kilitlendi. Sebep: **{sebep}**", 
             ephemeral=True
         )
-        # Halka açık duyuru (Herkesin görmesi gerekir)
         await interaction.channel.send(f"🔒 **KANAL KİLİTLENDİ!** Kanal **{sure_dakika} dakika** boyunca yetkililer hariç kullanıma kapalıdır. Sebep: **{sebep}**")
         
         await asyncio.sleep(sure_saniye)
@@ -742,16 +694,15 @@ async def kilit_komutu(interaction: discord.Interaction, sure_dakika: app_comman
         await interaction.response.send_message("Kanalları yönetme iznim yok!", ephemeral=True)
 
 
-# 6. /sil Komutu (Zaten ephemeral=True)
+# 6. /sil Komutu (Ephemeral)
 @tree.command(name="sil", description="Belirtilen miktarda mesajı siler (Maks. 100).")
 @app_commands.checks.has_permissions(manage_messages=True)
 async def sil_komutu(interaction: discord.Interaction, miktar: app_commands.Range[int, 1, 100]):
-    # Defer (bekleme) ve followup ile ephemeral cevap atar.
     await interaction.response.defer(ephemeral=True) 
     await interaction.channel.purge(limit=miktar) 
     await interaction.followup.send(f'✅ **{miktar}** adet mesaj başarıyla silindi.', ephemeral=True)
 
-# 7. /afk Komutu (NOT: Bu komutun yanıtı BİLİNÇLİ OLARAK herkesin görmesi için ephemeral=False olarak bırakılmıştır, çünkü amacı diğerlerini bilgilendirmektir.)
+# 7. /afk Komutu (Herkese Açık)
 @tree.command(name="afk", description="Botunuzu AFK (Klavye Başında Değil) durumuna geçirir.")
 async def afk_komutu(interaction: discord.Interaction, sebep: str = "Sebep belirtilmemiş"):
     user_id = interaction.user.id
@@ -759,17 +710,15 @@ async def afk_komutu(interaction: discord.Interaction, sebep: str = "Sebep belir
 
     yeni_nick = f"[AFK] {interaction.user.display_name}"
     try:
-        # Nick'in 32 karakterden uzun olmaması için kontrol
         if len(yeni_nick) > 32:
-            yeni_nick = f"[AFK] {interaction.user.display_name[:26]}" # 32'yi aşmaması için kesilir
+            yeni_nick = f"[AFK] {interaction.user.display_name[:26]}"
             
         await interaction.user.edit(nick=yeni_nick)
-        # Herkesin görmesi için ephemeral=False
         await interaction.response.send_message(f"💤 **{interaction.user.mention}** AFK durumuna geçti. Sebep: **{sebep}**", ephemeral=False)
     except discord.Forbidden:
         await interaction.response.send_message(f"💤 AFK durumuna geçtin, ancak botun rolü nickini değiştirmeye yetmiyor. Sebep: **{sebep}**", ephemeral=True)
 
-# 8. /çek Komutu (GÜNCELLENDİ: ephemeral=True)
+# 8. /çek Komutu (Ephemeral)
 @tree.command(name="çek", description="Girdiğin üyeyi senin bulunduğun sesli kanala taşırsın.")
 @app_commands.checks.has_permissions(move_members=True)
 async def cek_komutu(interaction: discord.Interaction, uye: discord.Member):
@@ -784,12 +733,11 @@ async def cek_komutu(interaction: discord.Interaction, uye: discord.Member):
     
     try:
         await uye.move_to(hedef_kanal)
-        # Sadece komutu kullanan görecek
         await interaction.response.send_message(f"✅ **{uye.display_name}** başarılı bir şekilde **{hedef_kanal.name}** kanalına çekildi.", ephemeral=True)
     except discord.Forbidden:
         await interaction.response.send_message("Üyeyi taşımak için yeterli yetkim yok veya üye yetkili.", ephemeral=True)
 
-# 9. /taşı Komutu (GÜNCELLENDİ: ephemeral=True)
+# 9. /taşı Komutu (Ephemeral)
 @tree.command(name="taşı", description="Girdiğin üyeyi istediğin sesli kanala taşırsın.")
 @app_commands.checks.has_permissions(move_members=True)
 async def tasi_komutu(interaction: discord.Interaction, uye: discord.Member, kanal: discord.VoiceChannel):
@@ -799,26 +747,23 @@ async def tasi_komutu(interaction: discord.Interaction, uye: discord.Member, kan
     
     try:
         await uye.move_to(kanal)
-        # Sadece komutu kullanan görecek
         await interaction.response.send_message(f"✅ **{uye.display_name}** başarılı bir şekilde **{kanal.name}** kanalına taşındı.", ephemeral=True)
     except discord.Forbidden:
         await interaction.response.send_message("Üyeyi taşımak için yeterli yetkim yok veya üye yetkili.", ephemeral=True)
 
-# 10. /hatırlatıcı Komutu (GÜNCELLENDİ: ephemeral=True)
+# 10. /hatırlatıcı Komutu (Ephemeral)
 @tree.command(name="hatırlatıcı", description="Belirtilen süre sonunda seni etiketleyerek bir şeyi hatırlatır (dakika cinsinden).")
 async def hatirlatici_komutu(interaction: discord.Interaction, sure_dakika: app_commands.Range[int, 1, None], mesaj: str):
     sure_saniye = sure_dakika * 60 
     
-    # Sadece komutu kullanan görecek
     await interaction.response.send_message(f"✅ Hatırlatıcın ayarlandı. **{sure_dakika} dakika** sonra sana hatırlatacağım.", ephemeral=True)
     
     await asyncio.sleep(sure_saniye)
     
-    # Hatırlatıcı mesajı herkese (veya kanala) gönderilmeli
     await interaction.followup.send(f"🔔 **HATIRLATICI:** {interaction.user.mention} \n> Hatırlatılacak mesaj: **{mesaj}**")
 
 
-# 11. /koruma Komutu (GÜNCELLENDİ: ephemeral=True)
+# 11. /koruma Komutu (Ephemeral)
 @tree.command(name="koruma", description="Botun aktif koruma sistemlerinin durumunu gösterir.")
 async def koruma_komutu(interaction: discord.Interaction):
     embed = discord.Embed(
@@ -845,11 +790,10 @@ async def koruma_komutu(interaction: discord.Interaction):
         inline=False
     )
     
-    # Sadece komutu kullanan görecek
     await interaction.response.send_message(embed=embed, ephemeral=True)
 
 
-# 12. /metin Komutu (GÜNCELLENDİ: ephemeral=True)
+# 12. /metin Komutu (Ephemeral)
 @tree.command(name="metin", description="Kullanıcının anlık aktivitesini ve yazı/ses durumunu analiz eder.")
 async def metin_komutu(interaction: discord.Interaction, uye: discord.Member = None):
     uye = uye or interaction.user
@@ -891,11 +835,10 @@ async def metin_komutu(interaction: discord.Interaction, uye: discord.Member = N
     embed.set_thumbnail(url=uye.avatar.url if uye.avatar else uye.default_avatar.url)
     embed.set_footer(text=f"Analiz İsteyen: {interaction.user.display_name}")
     
-    # Sadece komutu kullanan görecek
     await interaction.response.send_message(embed=embed, ephemeral=True)
 
 
-# 13. /avatar Komutu (GÜNCELLENDİ: ephemeral=True)
+# 13. /avatar Komutu (Ephemeral)
 @tree.command(name="avatar", description="Bir kullanıcının avatarını tam boy gösterir.")
 async def avatar_komutu(interaction: discord.Interaction, uye: discord.Member):
     avatar_url = uye.avatar.url if uye.avatar else uye.default_avatar.url
@@ -904,10 +847,9 @@ async def avatar_komutu(interaction: discord.Interaction, uye: discord.Member):
         color=discord.Color.dark_teal()
     )
     embed.set_image(url=avatar_url)
-    # Sadece komutu kullanan görecek
     await interaction.response.send_message(embed=embed, ephemeral=True)
 
-# 14. /kullanici Komutu (GÜNCELLENDİ: ephemeral=True)
+# 14. /kullanici Komutu (Ephemeral)
 @tree.command(name="kullanici", description="Bir kullanıcının detaylı sunucu ve Discord bilgilerini gösterir.")
 async def kullanici_komutu(interaction: discord.Interaction, uye: discord.Member):
     conn = sqlite3.connect(DB_NAME)
@@ -939,25 +881,59 @@ async def kullanici_komutu(interaction: discord.Interaction, uye: discord.Member
     embed.add_field(name="Roller", value=", ".join(roller)[:1024] if roller else "Yok", inline=False)
     embed.set_thumbnail(url=uye.avatar.url if uye.avatar else uye.default_avatar.url)
     
-    # Sadece komutu kullanan görecek
     await interaction.response.send_message(embed=embed, ephemeral=True)
 
-# 15. /roller Komutu (GÜNCELLENDİ: ephemeral=True)
-@tree.command(name="roller", description="Sunucudaki tüm rolleri listeler.")
+# 15. /roller Komutu (YENİLENDİ: Detaylı ve düzenli listeleme - Ephemeral)
+@tree.command(name="roller", description="Sunucudaki tüm rolleri hiyerarşik olarak listeler ve detaylarını gösterir.")
 async def roller_komutu(interaction: discord.Interaction):
-    roller_listesi = [f"`{role.name}`" for role in interaction.guild.roles if role.name != "@everyone"]
-    roller_str = ", ".join(roller_listesi) if roller_listesi else "Sunucuda özel rol bulunmamaktadır."
+    
+    roller = sorted(
+        [r for r in interaction.guild.roles if r.name != "@everyone"], 
+        key=lambda r: r.position, 
+        reverse=True
+    )
     
     embed = discord.Embed(
-        title=f"🎭 {interaction.guild.name} Rol Listesi",
-        description=roller_str,
-        color=discord.Color.blue()
+        title=f"👑 {interaction.guild.name} Rol Hiyerarşisi",
+        description=f"Sunucuda toplam **{len(roller)}** adet rol bulunmaktadır.",
+        color=discord.Color.dark_blue()
     )
-    embed.set_footer(text=f"Toplam Rol Sayısı: {len(roller_listesi)}")
-    # Sadece komutu kullanan görecek
+    
+    current_field_value = ""
+    field_count = 1
+    
+    for i, role in enumerate(roller):
+        
+        is_bot_role = " (🤖 Bot Rolü)" if role.managed and role.hoist else ""
+        member_count = len(role.members) 
+
+        rol_detayi = f"**{i+1}. {role.mention}**{is_bot_role}\n" \
+                     f"`ID:` {role.id} | `Üye:` {member_count}\n"
+        
+        # Eğer yeni rol detayını eklemek field'ı 1024 karakter sınırını aşacaksa, yeni bir field başlat
+        if len(current_field_value) + len(rol_detayi) > 1024:
+            embed.add_field(
+                name=f"Hiyerarşi (Devam - {field_count})", 
+                value=current_field_value, 
+                inline=False
+            )
+            current_field_value = rol_detayi
+            field_count += 1
+        else:
+            current_field_value += rol_detayi
+            
+    # Son field'ı ekle
+    if current_field_value:
+        embed.add_field(
+            name=f"Hiyerarşi (Son - {field_count})", 
+            value=current_field_value, 
+            inline=False
+        )
+
+    embed.set_footer(text=f"Komutu kullanan: {interaction.user.display_name}")
     await interaction.response.send_message(embed=embed, ephemeral=True)
 
-# 16. /sunucu Komutu (GÜNCELLENDİ: ephemeral=True)
+# 16. /sunucu Komutu (Ephemeral)
 @tree.command(name="sunucu", description="Sunucu bilgilerini gösterir.")
 async def sunucu_komutu(interaction: discord.Interaction):
     guild = interaction.guild
@@ -974,10 +950,10 @@ async def sunucu_komutu(interaction: discord.Interaction):
     if guild.icon:
         embed.set_thumbnail(url=guild.icon.url)
         
-    # Sadece komutu kullanan görecek
     await interaction.response.send_message(embed=embed, ephemeral=True)
 
 # --- BOTU ÇALIŞTIRMA ---
 
-import os
+# Railway için doğru kullanım: Ortam değişkeninden (Environment Variable) çeker.
+# (Parantez hatası burada düzeltildi.)
 client.run(os.getenv("TOKEN"))
