@@ -1,0 +1,6 @@
+discord.py
+aiohttp
+PyNaCl  # Ses/müzik komutları için GEREKLİ
+youtube-dl # veya yt-dlp
+python-dotenv # Eğer token gibi bilgileri .env'den okuyorsanız
+# Diğer kullandığınız paketler
