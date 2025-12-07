@@ -1,13 +1,18 @@
-FROM node:18
+FROM python:3.11-slim
 
-# FFmpeg kur
+# FFmpeg kur (müzik için şart!)
 RUN apt-get update && apt-get install -y ffmpeg
 
-# Proje dosyaları
+# Çalışma klasörü
 WORKDIR /app
+
+# Gereken Python paketlerini yükle
+COPY requirements.txt .
+
+RUN pip install --no-cache-dir -r requirements.txt
+
+# Tüm kodları kopyala
 COPY . .
 
-# Node kurulum
-RUN npm install
-
-CMD ["node", "index.js"]
+# Botu başlat
+CMD ["python", "bot.py"]
