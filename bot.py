@@ -1306,5 +1306,7 @@ async def slap(interaction: discord.Interaction, kullanici: discord.Member):
     await interaction.response.send_message(embed=embed)
 
 # Botu çalıştır - TOKEN'ı buraya yazın
+import os
+TOKEN = os.getenv("DISCORD_TOKEN")
+bot.run(TOKEN)
 
-bot.run("TOKEN")
