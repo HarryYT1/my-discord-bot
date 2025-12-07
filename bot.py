@@ -805,4 +805,5 @@ async def cmd_bug(interaction: discord.Interaction, detay: str):
 if not TOKEN:
     print("BOT TOKEN config.json veya env ile sağlanmadı. Çalıştırmayı durduruyorum.")
 else:
-    client.run(TOKEN))
+    client.run(TOKEN)
+
