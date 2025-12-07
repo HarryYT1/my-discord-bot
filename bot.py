@@ -118,13 +118,14 @@ async def handle_presence(request):
     return web.json_response(PRESENCE_STATE)
 
 async def start_aiohttp():
+    port = int(os.environ.get("PORT", 8080))  # Railway portunu al, yoksa 8080
     app = web.Application()
     app.add_routes([web.get('/presence', handle_presence)])
     runner = web.AppRunner(app)
     await runner.setup()
-    site = web.TCPSite(runner, '0.0.0.0', 8080)
+    site = web.TCPSite(runner, '0.0.0.0', port)
     await site.start()
-    print("Presence API running on http://0.0.0.0:8080/presence")
+    print(f"Presence API running on http://0.0.0.0:{port}/presence")
 
 # ---------- CLIENT EVENTS ----------
 @client.event
@@ -610,3 +611,4 @@ async def cmd_bug(interaction: discord.Interaction, detay: str):
         except Exception:
             pass
     await interaction.response.send_message("Teşekkürler, rapor iletildi.", ephemeral=True)
+
