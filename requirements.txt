@@ -2,4 +2,4 @@ discord.py
 aiohttp
 PyNaCl
 yt-dlp  # Bu satırı ekleyin veya kontrol edin
-# Diğer kullandığınız paketler buraya
+ffmpeg-python
