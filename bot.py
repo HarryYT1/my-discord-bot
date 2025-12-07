@@ -20,8 +20,8 @@ def load_config():
                 return json.load(f)
         except json.JSONDecodeError:
             print("UYARI: config.json dosyası bozuk. Varsayılan ayarlar kullanılıyor.")
-            return {"LOG_KANAL_ID": None}
-    return {"LOG_KANAL_ID": None} 
+            return {"LOG_KANAL_ID": 1447199263019896893}
+    return {"LOG_KANAL_ID": 1447199263019896893} 
 
 def save_config(config):
     """Konfigürasyonu dosyaya kaydeder."""
@@ -1028,3 +1028,4 @@ async def sunucu_komutu(interaction: discord.Interaction):
 # --- BOTU ÇALIŞTIRMA ---
 
 client.run(os.getenv("TOKEN"))
+
