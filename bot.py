@@ -468,7 +468,7 @@ async def yardim_komutu(interaction: discord.Interaction):
 
     embed.add_field(
         name="📊 Analiz & Bilgi Sistemleri",
-        value="`/kullanici`, `/koruma`, `/metin`, `/avatar`, `/roller`, `/sunucu`",
+        value="`/kullanici`, `/koruma`, `/avatar`, `/roller`, `/sunucu`",
         inline=False
     )
 
@@ -790,53 +790,7 @@ async def koruma_komutu(interaction: discord.Interaction):
     
     await interaction.response.send_message(embed=embed, ephemeral=True)
 
-
-# 12. /metin Komutu 
-@tree.command(name="metin", description="Kullanıcının anlık aktivitesini ve yazı/ses durumunu analiz eder.")
-async def metin_komutu(interaction: discord.Interaction, uye: discord.Member = None):
-    uye = uye or interaction.user
-    
-    embed = discord.Embed(
-        title=f"🧠 {uye.display_name} Anlık Analiz",
-        color=discord.Color.blue()
-    )
-    
-    embed.add_field(
-        name="Discord Durumu", 
-        value=durum_cevir(uye.status), 
-        inline=True
-    )
-
-    afk_sebep = AFK_DURUMU.get(uye.id)
-    afk_durumu = f"✅ AFK. Sebep: **{afk_sebep}**" if afk_sebep else "❌ AFK Değil"
-    embed.add_field(
-        name="AFK Sistemi", 
-        value=afk_durumu, 
-        inline=True
-    )
-    
-    if uye.voice:
-        ses_durumu = (
-            f"🔊 Kanal: **{uye.voice.channel.name}**\n"
-            f"🔇 Kendi Susturma: {'Evet' if uye.voice.self_mute else 'Hayır'}\n"
-            f"❌ Sunucu Susturma: {'Evet' if uye.voice.mute else 'Hayır'}"
-        )
-    else:
-        ses_durumu = "Yok. Şu anda sesli kanalda değil."
-
-    embed.add_field(
-        name="Sesli Kanal Durumu", 
-        value=ses_durumu, 
-        inline=False
-    )
-    
-    embed.set_thumbnail(url=uye.avatar.url if uye.avatar else uye.default_avatar.url)
-    embed.set_footer(text=f"Analiz İsteyen: {interaction.user.display_name}")
-    
-    await interaction.response.send_message(embed=embed, ephemeral=True)
-
-
-# 13. /avatar Komutu 
+# 12. /avatar Komutu 
 @tree.command(name="avatar", description="Bir kullanıcının avatarını tam boy gösterir.")
 async def avatar_komutu(interaction: discord.Interaction, uye: discord.Member):
     avatar_url = uye.avatar.url if uye.avatar else uye.default_avatar.url
@@ -847,9 +801,13 @@ async def avatar_komutu(interaction: discord.Interaction, uye: discord.Member):
     embed.set_image(url=avatar_url)
     await interaction.response.send_message(embed=embed, ephemeral=True)
 
-# 14. /kullanici Komutu 
+# 13. /kullanici Komutu (YENİLENDİ: Detaylı ve Görseldeki Gibi Analiz)
 @tree.command(name="kullanici", description="Bir kullanıcının detaylı sunucu ve Discord bilgilerini gösterir.")
-async def kullanici_komutu(interaction: discord.Interaction, uye: discord.Member):
+async def kullanici_komutu(interaction: discord.Interaction, uye: discord.Member = None):
+    # Kullanıcı belirtilmezse komutu kullananı kullan
+    uye = uye or interaction.user
+    
+    # 1. Ses Süresi Verisi
     conn = sqlite3.connect(DB_NAME)
     cursor = conn.cursor()
     cursor.execute("SELECT total_voice_seconds FROM voice_logs WHERE user_id = ?", (uye.id,))
@@ -859,35 +817,82 @@ async def kullanici_komutu(interaction: discord.Interaction, uye: discord.Member
     total_voice_time = db_result[0] if db_result else 0
     formatted_voice_time = format_seconds(total_voice_time)
     
+    # 2. Embed Rengi ve Rol Bilgileri
+    # En yüksek rolün rengini kullan. Eğer renk yoksa (default), yeşil kullan.
+    color = uye.color if uye.color != discord.Color.default() else discord.Color.green()
+    
+    # Rolleri hiyerarşik olarak sıralayıp listeleyelim (@everyone hariç)
+    roller = sorted(
+        [r for r in uye.roles if r.name != "@everyone"], 
+        key=lambda r: r.position, 
+        reverse=True
+    )
+    # Rol isimlerini al ve 1024 karakter sınırına kadar birleştir
+    roller_isimleri = ", ".join([r.mention for r in roller])
+    roller_str = roller_isimleri[:1020] + "..." if len(roller_isimleri) > 1020 else roller_isimleri
+    
+    # 3. AFK ve Ses Durumu
+    afk_sebep = AFK_DURUMU.get(uye.id)
+    afk_durumu = f"✅ AFK. Sebep: **{afk_sebep}**" if afk_sebep else "❌ AFK Değil"
+    
+    ses_kanali = uye.voice.channel.mention if uye.voice and uye.voice.channel else "Yok"
+    
+    
     embed = discord.Embed(
-        title=f"👤 {uye.display_name} Detaylı Bilgileri",
-        description=f"**{uye.mention}** kullanıcısının sunucu ve Discord istatistikleri.",
-        color=uye.color if uye.color != discord.Color.default() else discord.Color.green()
+        title=f"👤 {uye.display_name} Kullanıcı Profili",
+        description=f"**Kullanıcı Adı:** {uye.mention}\n"
+                    f"**ID:** `{uye.id}`",
+        color=color
     )
     
-    embed.add_field(name="ID", value=f"`{uye.id}`", inline=True)
-    embed.add_field(name="Sunucuya Katılım", value=discord.utils.format_dt(uye.joined_at, "R"), inline=True)
-    embed.add_field(name="Discord'a Katılım", value=discord.utils.format_dt(uye.created_at, "R"), inline=False)
-    
+    # Alan 1: Durum Bilgileri
     embed.add_field(
-        name="🔊 Toplam Ses Süresi (DB)", 
-        value=formatted_voice_time, 
+        name="Durum ve Aktivite", 
+        value=(
+            f"**Discord Durumu:** {durum_cevir(uye.status)}\n"
+            f"**AFK Durumu:** {afk_durumu}"
+        ), 
+        inline=True
+    )
+    
+    # Alan 2: Ses Bilgisi
+    embed.add_field(
+        name="Ses Kanalı", 
+        value=(
+            f"**Anlık Kanal:** {ses_kanali}\n"
+            f"**Toplam Ses Süresi:** {formatted_voice_time}"
+        ), 
+        inline=True
+    )
+
+    # Alan 3: Kayıt Bilgileri
+    embed.add_field(
+        name="Kayıt Tarihleri",
+        value=(
+            f"**Sunucuya Katılım:** {discord.utils.format_dt(uye.joined_at, 'R')}\n"
+            f"**Discord'a Katılım:** {discord.utils.format_dt(uye.created_at, 'R')}"
+        ),
         inline=False
     )
     
-    roller = [r.name for r in uye.roles if r.name != "@everyone"]
-    embed.add_field(name="Roller", value=", ".join(roller)[:1024] if roller else "Yok", inline=False)
+    # Alan 4: Roller
+    embed.add_field(
+        name=f"Roller ({len(roller)})", 
+        value=roller_str if roller_str else "Yok", 
+        inline=False
+    )
+    
     embed.set_thumbnail(url=uye.avatar.url if uye.avatar else uye.default_avatar.url)
+    embed.set_footer(text=f"Analizi İsteyen: {interaction.user.display_name}")
     
     await interaction.response.send_message(embed=embed, ephemeral=True)
 
-# 15. /roller Komutu (YENİLENDİ: Görseldeki gibi sade ve düzenli listeleme)
+
+# 14. /roller Komutu (Sade ve Hiyerarşik)
 @tree.command(name="roller", description="Sunucudaki tüm rolleri hiyerarşik olarak listeler ve üye sayısını gösterir.")
 async def roller_komutu(interaction: discord.Interaction):
-    # Uzun sürebileceği için defer kullanıyoruz
     await interaction.response.defer(ephemeral=True) 
     
-    # 1. Rolleri hiyerarşiye göre ters sırada sırala (@everyone hariç)
     roles = sorted(
         [r for r in interaction.guild.roles if r.name != "@everyone"], 
         key=lambda r: r.position, 
@@ -901,37 +906,31 @@ async def roller_komutu(interaction: discord.Interaction):
     roller_listesi = []
     
     for i, role in enumerate(roles):
-        # Üye sayısını hesapla
         member_count = len(role.members) 
         
-        # İstediğiniz temiz ve sade format: [Sıra]. @RolAdı (X Üye)
         rol_satiri = f"**{i+1}.** {role.mention} **({member_count} Üye)**"
         
-        # Eğer rol botlara özel bir rolse işaret ekle
         if role.managed and role.hoist:
              rol_satiri += " `[Bot]`"
         
         roller_listesi.append(rol_satiri)
         
-    # Tüm listeyi tek bir string'de topla (Embed Description veya Field'ın karakter sınırını düşünerek)
     roller_str = "\n".join(roller_listesi)
     
-    # Discord Embed Description'ın maksimum 4096 karakter sınırına dikkat et
     if len(roller_str) > 4000:
         roller_str = roller_str[:4000] + "\n... (Liste çok uzun olduğu için kesildi.)"
 
     embed = discord.Embed(
         title=f"👑 {interaction.guild.name} Rol Listesi",
-        description=roller_str, # Sade listeyi description alanına basıyoruz
+        description=roller_str, 
         color=discord.Color.dark_blue()
     )
     
     embed.set_footer(text=f"Toplam Rol Sayısı: {len(roles)} | Hiyerarşik Sıralama")
     
-    # Sadece komutu kullanan görecek
     await interaction.followup.send(embed=embed, ephemeral=True)
 
-# 16. /sunucu Komutu 
+# 15. /sunucu Komutu 
 @tree.command(name="sunucu", description="Sunucu bilgilerini gösterir.")
 async def sunucu_komutu(interaction: discord.Interaction):
     guild = interaction.guild
