@@ -38,7 +38,6 @@ def setup_db():
             total_voice_seconds INTEGER DEFAULT 0
         )
     """)
-    # Çekiliş katılımcılarını takip etmek için tablo
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS giveaway_participants (
             message_id INTEGER,
@@ -46,7 +45,6 @@ def setup_db():
             PRIMARY KEY (message_id, user_id)
         )
     """)
-    # Kullanıcı mesaj sayısını takip etmek için tablo
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS user_messages (
             user_id INTEGER PRIMARY KEY,
@@ -63,7 +61,7 @@ SPAM_TAKIP = {}
 SPAM_LIMIT = 5   
 SPAM_ZAMAN = 5   
 LINK_ENGEL_AKTIF = True 
-# Railway Ortam Değişkeni kullanıldığı için TOKEN değişkeni burada tanımlanmadı.
+TOKEN = '' 
 OTOMATIK_ROL_ADI = "Üye" 
 AFK_DURUMU = {} 
 YASAKLI_LINKLER = ['discord.gg', 'http://', 'https://', '.com', '.net', '.org'] 
@@ -446,7 +444,7 @@ async def on_message(message):
 
 # --- SLASH KOMUTLARI (COMMANDS) ---
 
-# /yardım (Ephemeral)
+# /yardım
 @tree.command(name="yardım", description="Botun tüm komutlarını kategorilere ayrılmış bir şekilde gösterir.")
 async def yardim_komutu(interaction: discord.Interaction):
     embed = discord.Embed(
@@ -587,7 +585,7 @@ async def cekilis_komutu(
         await guncel_mesaj.edit(embed=bitis_embed, view=None)
 
 
-# 2. /logayarla (Ephemeral)
+# 2. /logayarla 
 @tree.command(name="logayarla", description="Log kanalını belirler.")
 @app_commands.checks.has_permissions(administrator=True)
 async def log_ayarla_komutu(interaction: discord.Interaction, kanal: discord.TextChannel):
@@ -602,7 +600,7 @@ async def log_ayarla_komutu(interaction: discord.Interaction, kanal: discord.Tex
         ephemeral=True
     )
 
-# 3. /yasakla Komutu (Ephemeral)
+# 3. /yasakla Komutu 
 @tree.command(name="yasakla", description="Belirtilen üyeyi sunucudan yasaklar.")
 @app_commands.checks.has_permissions(ban_members=True)
 async def yasakla_komutu(interaction: discord.Interaction, uye: discord.Member, sebep: str = "Sebep belirtilmemiş"):
@@ -624,7 +622,7 @@ async def yasakla_komutu(interaction: discord.Interaction, uye: discord.Member, 
     except discord.Forbidden:
         await interaction.response.send_message("Botun bu üyeyi yasaklamak için yeterli izni yok.", ephemeral=True)
 
-# 4. /yasakkaldir (Ephemeral)
+# 4. /yasakkaldir 
 @tree.command(name="yasakkaldir", description="Yasaklı bir üyeyi ID ile sunucudan yasağını kaldırır.")
 @app_commands.checks.has_permissions(ban_members=True)
 async def yasak_kaldir_komutu(interaction: discord.Interaction, kullanici_id: str, sebep: str = "Sebep belirtilmemiş"):
@@ -664,7 +662,7 @@ async def yasak_kaldir_komutu(interaction: discord.Interaction, kullanici_id: st
         await interaction.response.send_message(f"Beklenmedik bir hata oluştu: `{e}`", ephemeral=True)
 
 
-# 5. /kilit Komutu (Ephemeral)
+# 5. /kilit Komutu 
 @tree.command(name="kilit", description="Kullanılan metin kanalını belirli bir süre kilitler (dakika cinsinden).")
 @app_commands.checks.has_permissions(manage_channels=True)
 async def kilit_komutu(interaction: discord.Interaction, sure_dakika: app_commands.Range[int, 1, None], sebep: str = "Yönetim Kararı"):
@@ -694,7 +692,7 @@ async def kilit_komutu(interaction: discord.Interaction, sure_dakika: app_comman
         await interaction.response.send_message("Kanalları yönetme iznim yok!", ephemeral=True)
 
 
-# 6. /sil Komutu (Ephemeral)
+# 6. /sil Komutu 
 @tree.command(name="sil", description="Belirtilen miktarda mesajı siler (Maks. 100).")
 @app_commands.checks.has_permissions(manage_messages=True)
 async def sil_komutu(interaction: discord.Interaction, miktar: app_commands.Range[int, 1, 100]):
@@ -702,7 +700,7 @@ async def sil_komutu(interaction: discord.Interaction, miktar: app_commands.Rang
     await interaction.channel.purge(limit=miktar) 
     await interaction.followup.send(f'✅ **{miktar}** adet mesaj başarıyla silindi.', ephemeral=True)
 
-# 7. /afk Komutu (Herkese Açık)
+# 7. /afk Komutu (Halka açık olması için ephemeral=False bırakılmıştır)
 @tree.command(name="afk", description="Botunuzu AFK (Klavye Başında Değil) durumuna geçirir.")
 async def afk_komutu(interaction: discord.Interaction, sebep: str = "Sebep belirtilmemiş"):
     user_id = interaction.user.id
@@ -718,7 +716,7 @@ async def afk_komutu(interaction: discord.Interaction, sebep: str = "Sebep belir
     except discord.Forbidden:
         await interaction.response.send_message(f"💤 AFK durumuna geçtin, ancak botun rolü nickini değiştirmeye yetmiyor. Sebep: **{sebep}**", ephemeral=True)
 
-# 8. /çek Komutu (Ephemeral)
+# 8. /çek Komutu 
 @tree.command(name="çek", description="Girdiğin üyeyi senin bulunduğun sesli kanala taşırsın.")
 @app_commands.checks.has_permissions(move_members=True)
 async def cek_komutu(interaction: discord.Interaction, uye: discord.Member):
@@ -737,7 +735,7 @@ async def cek_komutu(interaction: discord.Interaction, uye: discord.Member):
     except discord.Forbidden:
         await interaction.response.send_message("Üyeyi taşımak için yeterli yetkim yok veya üye yetkili.", ephemeral=True)
 
-# 9. /taşı Komutu (Ephemeral)
+# 9. /taşı Komutu 
 @tree.command(name="taşı", description="Girdiğin üyeyi istediğin sesli kanala taşırsın.")
 @app_commands.checks.has_permissions(move_members=True)
 async def tasi_komutu(interaction: discord.Interaction, uye: discord.Member, kanal: discord.VoiceChannel):
@@ -751,7 +749,7 @@ async def tasi_komutu(interaction: discord.Interaction, uye: discord.Member, kan
     except discord.Forbidden:
         await interaction.response.send_message("Üyeyi taşımak için yeterli yetkim yok veya üye yetkili.", ephemeral=True)
 
-# 10. /hatırlatıcı Komutu (Ephemeral)
+# 10. /hatırlatıcı Komutu 
 @tree.command(name="hatırlatıcı", description="Belirtilen süre sonunda seni etiketleyerek bir şeyi hatırlatır (dakika cinsinden).")
 async def hatirlatici_komutu(interaction: discord.Interaction, sure_dakika: app_commands.Range[int, 1, None], mesaj: str):
     sure_saniye = sure_dakika * 60 
@@ -763,7 +761,7 @@ async def hatirlatici_komutu(interaction: discord.Interaction, sure_dakika: app_
     await interaction.followup.send(f"🔔 **HATIRLATICI:** {interaction.user.mention} \n> Hatırlatılacak mesaj: **{mesaj}**")
 
 
-# 11. /koruma Komutu (Ephemeral)
+# 11. /koruma Komutu 
 @tree.command(name="koruma", description="Botun aktif koruma sistemlerinin durumunu gösterir.")
 async def koruma_komutu(interaction: discord.Interaction):
     embed = discord.Embed(
@@ -793,7 +791,7 @@ async def koruma_komutu(interaction: discord.Interaction):
     await interaction.response.send_message(embed=embed, ephemeral=True)
 
 
-# 12. /metin Komutu (Ephemeral)
+# 12. /metin Komutu 
 @tree.command(name="metin", description="Kullanıcının anlık aktivitesini ve yazı/ses durumunu analiz eder.")
 async def metin_komutu(interaction: discord.Interaction, uye: discord.Member = None):
     uye = uye or interaction.user
@@ -838,7 +836,7 @@ async def metin_komutu(interaction: discord.Interaction, uye: discord.Member = N
     await interaction.response.send_message(embed=embed, ephemeral=True)
 
 
-# 13. /avatar Komutu (Ephemeral)
+# 13. /avatar Komutu 
 @tree.command(name="avatar", description="Bir kullanıcının avatarını tam boy gösterir.")
 async def avatar_komutu(interaction: discord.Interaction, uye: discord.Member):
     avatar_url = uye.avatar.url if uye.avatar else uye.default_avatar.url
@@ -849,7 +847,7 @@ async def avatar_komutu(interaction: discord.Interaction, uye: discord.Member):
     embed.set_image(url=avatar_url)
     await interaction.response.send_message(embed=embed, ephemeral=True)
 
-# 14. /kullanici Komutu (Ephemeral)
+# 14. /kullanici Komutu 
 @tree.command(name="kullanici", description="Bir kullanıcının detaylı sunucu ve Discord bilgilerini gösterir.")
 async def kullanici_komutu(interaction: discord.Interaction, uye: discord.Member):
     conn = sqlite3.connect(DB_NAME)
@@ -883,57 +881,57 @@ async def kullanici_komutu(interaction: discord.Interaction, uye: discord.Member
     
     await interaction.response.send_message(embed=embed, ephemeral=True)
 
-# 15. /roller Komutu (YENİLENDİ: Detaylı ve düzenli listeleme - Ephemeral)
-@tree.command(name="roller", description="Sunucudaki tüm rolleri hiyerarşik olarak listeler ve detaylarını gösterir.")
+# 15. /roller Komutu (YENİLENDİ: Görseldeki gibi sade ve düzenli listeleme)
+@tree.command(name="roller", description="Sunucudaki tüm rolleri hiyerarşik olarak listeler ve üye sayısını gösterir.")
 async def roller_komutu(interaction: discord.Interaction):
+    # Uzun sürebileceği için defer kullanıyoruz
+    await interaction.response.defer(ephemeral=True) 
     
-    roller = sorted(
+    # 1. Rolleri hiyerarşiye göre ters sırada sırala (@everyone hariç)
+    roles = sorted(
         [r for r in interaction.guild.roles if r.name != "@everyone"], 
         key=lambda r: r.position, 
         reverse=True
     )
     
+    if not roles:
+        await interaction.followup.send("❌ Sunucuda `@everyone` dışında özel bir rol bulunmamaktadır.", ephemeral=True)
+        return
+
+    roller_listesi = []
+    
+    for i, role in enumerate(roles):
+        # Üye sayısını hesapla
+        member_count = len(role.members) 
+        
+        # İstediğiniz temiz ve sade format: [Sıra]. @RolAdı (X Üye)
+        rol_satiri = f"**{i+1}.** {role.mention} **({member_count} Üye)**"
+        
+        # Eğer rol botlara özel bir rolse işaret ekle
+        if role.managed and role.hoist:
+             rol_satiri += " `[Bot]`"
+        
+        roller_listesi.append(rol_satiri)
+        
+    # Tüm listeyi tek bir string'de topla (Embed Description veya Field'ın karakter sınırını düşünerek)
+    roller_str = "\n".join(roller_listesi)
+    
+    # Discord Embed Description'ın maksimum 4096 karakter sınırına dikkat et
+    if len(roller_str) > 4000:
+        roller_str = roller_str[:4000] + "\n... (Liste çok uzun olduğu için kesildi.)"
+
     embed = discord.Embed(
-        title=f"👑 {interaction.guild.name} Rol Hiyerarşisi",
-        description=f"Sunucuda toplam **{len(roller)}** adet rol bulunmaktadır.",
+        title=f"👑 {interaction.guild.name} Rol Listesi",
+        description=roller_str, # Sade listeyi description alanına basıyoruz
         color=discord.Color.dark_blue()
     )
     
-    current_field_value = ""
-    field_count = 1
+    embed.set_footer(text=f"Toplam Rol Sayısı: {len(roles)} | Hiyerarşik Sıralama")
     
-    for i, role in enumerate(roller):
-        
-        is_bot_role = " (🤖 Bot Rolü)" if role.managed and role.hoist else ""
-        member_count = len(role.members) 
+    # Sadece komutu kullanan görecek
+    await interaction.followup.send(embed=embed, ephemeral=True)
 
-        rol_detayi = f"**{i+1}. {role.mention}**{is_bot_role}\n" \
-                     f"`ID:` {role.id} | `Üye:` {member_count}\n"
-        
-        # Eğer yeni rol detayını eklemek field'ı 1024 karakter sınırını aşacaksa, yeni bir field başlat
-        if len(current_field_value) + len(rol_detayi) > 1024:
-            embed.add_field(
-                name=f"Hiyerarşi (Devam - {field_count})", 
-                value=current_field_value, 
-                inline=False
-            )
-            current_field_value = rol_detayi
-            field_count += 1
-        else:
-            current_field_value += rol_detayi
-            
-    # Son field'ı ekle
-    if current_field_value:
-        embed.add_field(
-            name=f"Hiyerarşi (Son - {field_count})", 
-            value=current_field_value, 
-            inline=False
-        )
-
-    embed.set_footer(text=f"Komutu kullanan: {interaction.user.display_name}")
-    await interaction.response.send_message(embed=embed, ephemeral=True)
-
-# 16. /sunucu Komutu (Ephemeral)
+# 16. /sunucu Komutu 
 @tree.command(name="sunucu", description="Sunucu bilgilerini gösterir.")
 async def sunucu_komutu(interaction: discord.Interaction):
     guild = interaction.guild
@@ -954,6 +952,4 @@ async def sunucu_komutu(interaction: discord.Interaction):
 
 # --- BOTU ÇALIŞTIRMA ---
 
-# Railway için doğru kullanım: Ortam değişkeninden (Environment Variable) çeker.
-# (Parantez hatası burada düzeltildi.)
 client.run(os.getenv("TOKEN"))
