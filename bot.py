@@ -21,7 +21,7 @@ music_queues = {}
 voice_clients = {}
 
 # Bot owner ID (buraya kendi Discord ID'nizi yazın)
-OWNER_ID = 123456789  # BURAYA KENDİ ID'NİZİ YAZIN
+OWNER_ID = 911655070817456139  # BURAYA KENDİ ID'NİZİ YAZIN
 
 # yt-dlp ayarları
 ytdl_format_options = {
@@ -1306,4 +1306,5 @@ async def slap(interaction: discord.Interaction, kullanici: discord.Member):
     await interaction.response.send_message(embed=embed)
 
 # Botu çalıştır - TOKEN'ı buraya yazın
+
 bot.run("TOKEN")
