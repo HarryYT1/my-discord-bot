@@ -126,7 +126,7 @@ async def mute(interaction: discord.Interaction, kullanici: discord.Member, daki
         embed = discord.Embed(color=0x808080)
         embed.set_author(name="🔇 Kullanıcı Susturuldu", icon_url=kullanici.avatar.url if kullanici.avatar else None)
         embed.add_field(name="👤 Kullanıcı", value=f"{kullanici.mention}\n`{kullanici.id}`", inline=True)
-        embed.add_field(name=⏱️ Süre", value=f"`{dakika}` dakika", inline=True)
+        embed.add_field(name="⏱️ Süre", value=f"`{dakika}` dakika", inline=True)
         embed.add_field(name="📝 Sebep", value=sebep, inline=False)
         embed.set_footer(text=f"Yetkili: {interaction.user.name}", icon_url=interaction.user.avatar.url if interaction.user.avatar else None)
         embed.timestamp = datetime.now()
@@ -1307,3 +1307,4 @@ async def slap(interaction: discord.Interaction, kullanici: discord.Member):
 
 # Botu çalıştır - TOKEN'ı buraya yazın
 bot.run("TOKEN")
+
