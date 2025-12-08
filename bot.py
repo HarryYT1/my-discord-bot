@@ -1639,7 +1639,7 @@ if not TOKEN:
 
 # Ana çalıştırma bloğu başlar
     if __name__ == "__main__":
-    if not TOKEN:
+        if not TOKEN:
         # Token bulunamazsa HATA yazdır.
         print("❌ HATA: Bot tokeni bulunamadı! 'TOKEN' değişkenini/dosyasını kontrol et.")
         # Bu noktada botun durması için exit() kullanılabilir veya hata fırlatılabilir.
@@ -1651,6 +1651,7 @@ if not TOKEN:
             bot.run(TOKEN)
         except Exception as e:
             print(f"❌ Bot başlatılamadı: {e}")
+
 
 
 
