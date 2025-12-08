@@ -1603,13 +1603,39 @@ if not TOKEN:
 
 if __name__ == "__main__":
     # ============ LAUNCH (TOKEN) ============
+# ============ LAUNCH (TOKEN) ============
 # Token from env or token.txt fallback
-# Bot, Railway'de tanımlanan "TOKEN" değişkenini arayacak.
+
+# 1. Ortam Değişkeninden TOKEN'i çek (Railway'de tanımlanan "TOKEN" değişkeni)
+# Not: Bu kontrolü __main__ dışına alıyoruz ki, botu import edenler de TOKEN'e erişebilsin.
 TOKEN = os.getenv("TOKEN") 
 
+
+# 2. Eğer ortam değişkeni (Railway) boşsa, yedek olarak token.txt dosyasını kontrol et
 if not TOKEN:
     try:
+        # token.txt dosyasından oku
         with open("token.txt", "r", encoding="utf-8") as tf:
             TOKEN = tf.read().strip()
     except Exception:
+        # Dosya da bulunamazsa veya okunamasa TOKEN hala None kalır.
         TOKEN = None
+
+
+# 3. Botu sadece ana dosya çalıştırıldığında başlat (if __name__ == "__main__":)
+if __name__ == "__main__":
+    
+    # Tüm kod bu bloğun İÇİNDE, 4 BOŞLUK girintiyle yer almalıdır.
+    
+    if not TOKEN:
+        # Token hala None (yani bulunamadı) ise hata mesajı ver
+        print("❌ HATA: Bot tokeni bulunamadı! 'TOKEN' değişkenini/dosyasını kontrol et.")
+        
+    else:
+        # Token bulunduysa, botu çalıştırmayı dene
+        try:
+            bot.run(TOKEN)
+        except Exception as e:
+            # Çalıştırma sırasında Discord bağlantı hatası vb. olursa yakalar
+            print(f"❌ Bot başlatılamadı: {e}")
+
