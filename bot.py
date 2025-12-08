@@ -1608,7 +1608,7 @@ if __name__ == "__main__":
 
 # 1. Ortam Değişkeninden TOKEN'i çek (Railway'de tanımlanan "TOKEN" değişkeni)
 # Not: Bu kontrolü __main__ dışına alıyoruz ki, botu import edenler de TOKEN'e erişebilsin.
-TOKEN = os.getenv("TOKEN") 
+    TOKEN = os.getenv("TOKEN") 
 
 
 # 2. Eğer ortam değişkeni (Railway) boşsa, yedek olarak token.txt dosyasını kontrol et
@@ -1651,6 +1651,7 @@ if not TOKEN:
             bot.run(TOKEN)
         except Exception as e:
             print(f"❌ Bot başlatılamadı: {e}")
+
 
 
 
