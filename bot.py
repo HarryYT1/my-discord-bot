@@ -1638,7 +1638,7 @@ if not TOKEN:
 
 
 # Ana çalıştırma bloğu başlar
-if __name__ == "__main__":
+    if __name__ == "__main__":
     
     # Tüm kodlar bu bloğun içine girintili olmalıdır (4 boşluk veya 1 Tab)
     
@@ -1654,4 +1654,5 @@ if __name__ == "__main__":
             bot.run(TOKEN)
         except Exception as e:
             print(f"❌ Bot başlatılamadı: {e}")
+
 
