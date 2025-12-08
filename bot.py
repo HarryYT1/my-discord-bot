@@ -1627,7 +1627,6 @@ if not TOKEN:
 # Önce Railway ortamından (KEY: TOKEN) çek.
 TOKEN = os.getenv("TOKEN") 
 
-
 if not TOKEN:
     try:
         # Ortamda yoksa token.txt dosyasını dene.
@@ -1637,19 +1636,23 @@ if not TOKEN:
         TOKEN = None
 
 
-# Ana çalıştırma bloğu başlar
-    if __name__ == "__main__":
-        if not TOKEN:
-        # Token bulunamazsa HATA yazdır.
-             print("❌ HATA: Bot tokeni bulunamadı! 'TOKEN' değişkenini/dosyasını kontrol et.")
-        # Bu noktada botun durması için exit() kullanılabilir veya hata fırlatılabilir.
-        # Örneğin: exit(1) 
+# Ana çalıştırma bloğu başlar (En dış seviyede, hiç boşluksuz)
+if __name__ == "__main__":
+    
+    # Birinci Seviye Girinti (4 Boşluk)
+    if not TOKEN:
+        # İkinci Seviye Girinti (8 Boşluk)
+        print("❌ HATA: Bot tokeni bulunamadı! 'TOKEN' değişkenini/dosyasını kontrol et.")
+        # İsteğe bağlı: exit(1) ekleyerek container'ı durdurabilirsiniz.
+    
     else:
-        # Token bulunduysa, botu çalıştır.
+        # Birinci Seviye Girinti (4 Boşluk)
         try:
+            # İkinci Seviye Girinti (8 Boşluk)
             print(f"[LAUCH] Bot tokeni ile başlatılıyor...")
             bot.run(TOKEN)
         except Exception as e:
+            # İkinci Seviye Girinti (8 Boşluk)
             print(f"❌ Bot başlatılamadı: {e}")
 
 
