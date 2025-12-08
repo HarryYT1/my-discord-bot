@@ -1639,9 +1639,6 @@ if not TOKEN:
 
 # Ana çalıştırma bloğu başlar
     if __name__ == "__main__":
-    
-    # Tüm kodlar bu bloğun içine girintili olmalıdır (4 boşluk veya 1 Tab)
-    
     if not TOKEN:
         # Token bulunamazsa HATA yazdır.
         print("❌ HATA: Bot tokeni bulunamadı! 'TOKEN' değişkenini/dosyasını kontrol et.")
@@ -1654,5 +1651,6 @@ if not TOKEN:
             bot.run(TOKEN)
         except Exception as e:
             print(f"❌ Bot başlatılamadı: {e}")
+
 
 
