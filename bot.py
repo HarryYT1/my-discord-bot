@@ -1305,6 +1305,15 @@ async def slap(interaction: discord.Interaction, kullanici: discord.Member):
     
     await interaction.response.send_message(embed=embed)
 
-# Botu çalıştır - TOKEN'ı buraya yazın
-bot.run("TOKEN")
+import os
 
+# ... (Diğer kodlar)
+
+# Ortam değişkeninden token'ı oku
+TOKEN = os.environ.get("DISCORD_BOT_TOKEN") 
+
+# Eğer token bulunamazsa hata verilebilir, ancak bulunduğu varsayılırsa:
+if TOKEN:
+    bot.run(TOKEN)
+else:
+    print("HATA: DISCORD_BOT_TOKEN ortam değişkeni ayarlanmadı.")
