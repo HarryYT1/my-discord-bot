@@ -1602,11 +1602,14 @@ if not TOKEN:
         TOKEN = None
 
 if __name__ == "__main__":
-    if not TOKEN:
-        print("❌ HATA: Bot tokeni bulunamadı! TOKEN değişkenini kontrol et.")
-    else:
-        try:
-            bot.run(TOKEN)
-        except Exception as e:
-            print(f"❌ Bot başlatılamadı: {e}")
+    # ============ LAUNCH (TOKEN) ============
+# Token from env or token.txt fallback
+# Bot, Railway'de tanımlanan "TOKEN" değişkenini arayacak.
+TOKEN = os.getenv("TOKEN") 
 
+if not TOKEN:
+    try:
+        with open("token.txt", "r", encoding="utf-8") as tf:
+            TOKEN = tf.read().strip()
+    except Exception:
+        TOKEN = None
