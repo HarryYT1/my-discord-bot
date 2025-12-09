@@ -1568,4 +1568,5 @@ async def yardim(interaction: discord.Interaction):
     await interaction.response.send_message(embed=embed, view=view, ephemeral=True)
 
 # Botu çalıştır - TOKEN'ı buraya yazın
-bot.run("TOKEN")
+import os
+bot.run(os.getenv("BOT_TOKEN"))
