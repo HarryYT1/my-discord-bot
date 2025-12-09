@@ -477,6 +477,14 @@ async def banner(interaction: discord.Interaction, kullanici: discord.Member = N
     except Exception as e:
         await interaction.response.send_message(f"❌ Hata: {e}", ephemeral=True)
 
+        # Banner kontrolü - userinfo'ya ekle
+    try:
+        user = await bot.fetch_user(kullanici.id)
+        if hasattr(user, 'banner') and user.banner:
+            embed.set_image(url=user.banner.url)
+    except:
+        pass
+
 @bot.tree.command(name="ping", description="Botun gecikme süresini gösterir")
 async def ping(interaction: discord.Interaction):
     latency = round(bot.latency * 1000)
@@ -543,11 +551,6 @@ async def roleinfo(interaction: discord.Interaction, rol: discord.Role):
             value=" • ".join(izinler[:10]),
             inline=False
         )
-    
-    # Banner kontrolü
-    if kullanici.banner:
-        embed.set_image(url=kullanici.banner.url)
-        embed.add_field(name="🎨 Banner", value="[Banner'ı Görüntüle]("+kullanici.banner.url+")", inline=False)
     
     embed.set_footer(text=f"Sorgulayan: {interaction.user.name}", icon_url=interaction.user.avatar.url if interaction.user.avatar else None)
     embed.timestamp = datetime.now(timezone.utc)
@@ -1305,15 +1308,264 @@ async def slap(interaction: discord.Interaction, kullanici: discord.Member):
     
     await interaction.response.send_message(embed=embed)
 
-import os
+# ============== ROLLER KOMUTU (Fotoğraftaki gibi) ==============
 
-# ... (Diğer kodlar)
+@bot.tree.command(name="roller", description="Sunucudaki tüm rolleri gösterir")
+async def roller(interaction: discord.Interaction):
+    guild = interaction.guild
+    roller = sorted(guild.roles[1:], key=lambda r: r.position, reverse=True)
+    
+    # Kategorilere ayır
+    kategoriler = {
+        "🏆 Yönetim": [],
+        "🎨 Özel": [],
+        "🎮 Oyun": [],
+        "💚 Diğer": []
+    }
+    
+    for rol in roller:
+        eklendi = False
+        # Yönetim rolleri
+        if any(x in rol.name.lower() for x in ["admin", "mod", "yetkili", "owner"]):
+            kategoriler["🏆 Yönetim"].append(rol)
+            eklendi = True
+        # Özel roller
+        elif any(x in rol.name.lower() for x in ["vip", "boost", "premium", "special"]):
+            kategoriler["🎨 Özel"].append(rol)
+            eklendi = True
+        # Oyun rolleri
+        elif any(x in rol.name.lower() for x in ["game", "oyun", "lol", "valorant", "cs"]):
+            kategoriler["🎮 Oyun"].append(rol)
+            eklendi = True
+        
+        # Hiçbir kategoriye girmediyse "Diğer"e ekle
+        if not eklendi:
+            kategoriler["💚 Diğer"].append(rol)
+    
+    embed = discord.Embed(
+        title=f"📋 {guild.name} Sunucu Rolleri",
+        description=f"Toplam **{len(roller)}** rol bulunuyor\n\n",
+        color=0x5865F2
+    )
+    embed.set_thumbnail(url=guild.icon.url if guild.icon else None)
+    
+    # Her kategoriyi ekle
+    for kategori, rol_listesi in kategoriler.items():
+        if rol_listesi:
+            roller_text = ""
+            for rol in rol_listesi[:10]:  # Her kategoriden max 10
+                roller_text += f"{rol.mention} `({len(rol.members)})`\n"
+            
+            if len(rol_listesi) > 10:
+                roller_text += f"*+{len(rol_listesi)-10} rol daha...*\n"
+            
+            embed.add_field(
+                name=f"{kategori} [{len(rol_listesi)}]",
+                value=roller_text if roller_text else "`Rol yok`",
+                inline=False
+            )
+    
+    embed.set_footer(text=f"Sorgulayan: {interaction.user.name}", icon_url=interaction.user.avatar.url if interaction.user.avatar else None)
+    embed.timestamp = datetime.now(timezone.utc)
+    
+    await interaction.response.send_message(embed=embed)
 
-# Ortam değişkeninden token'ı oku
-TOKEN = os.environ.get("DISCORD_BOT_TOKEN") 
+# ============== ÇEKİLİŞ SİSTEMİ ==============
 
-# Eğer token bulunamazsa hata verilebilir, ancak bulunduğu varsayılırsa:
-if TOKEN:
-    bot.run(TOKEN)
-else:
-    print("HATA: DISCORD_BOT_TOKEN ortam değişkeni ayarlanmadı.")
+@bot.tree.command(name="cekilis", description="Çekiliş başlatır")
+@app_commands.describe(
+    sure="Süre (dakika)",
+    kazanan="Kazanan sayısı", 
+    odul="Ödül açıklaması"
+)
+async def cekilis(interaction: discord.Interaction, sure: int, kazanan: int, odul: str):
+    if not interaction.user.guild_permissions.manage_guild:
+        await interaction.response.send_message("❌ Bu komutu kullanmak için yetkiniz yok!", ephemeral=True)
+        return
+    
+    end_time = datetime.now(timezone.utc) + timedelta(minutes=sure)
+    
+    embed = discord.Embed(
+        title="🎉 ÇEKİLİŞ BAŞLADI!",
+        description=f"**🎁 Ödül:** {odul}\n\n🎊 Katılmak için aşağıdaki 🎉 emojisine tıklayın!",
+        color=0xFF1493
+    )
+    embed.add_field(
+        name="👥 Kazanan Sayısı",
+        value=f"```{kazanan} kişi```",
+        inline=True
+    )
+    embed.add_field(
+        name="⏱️ Süre", 
+        value=f"```{sure} dakika```",
+        inline=True
+    )
+    embed.add_field(
+        name="⏰ Bitiş Zamanı",
+        value=f"<t:{int(end_time.timestamp())}:R>",
+        inline=False
+    )
+    embed.set_footer(
+        text=f"Çekiliş Başlatan: {interaction.user.name}",
+        icon_url=interaction.user.avatar.url if interaction.user.avatar else None
+    )
+    embed.set_thumbnail(url="https://media.tenor.com/M4v7yEOy_XMAAAAM/party-popper.gif")
+    embed.timestamp = datetime.now(timezone.utc)
+    
+    await interaction.response.send_message(embed=embed)
+    message = await interaction.original_response()
+    await message.add_reaction("🎉")
+    
+    # Çekiliş bekleme
+    await asyncio.sleep(sure * 60)
+    
+    # Güncel mesajı çek
+    message = await interaction.channel.fetch_message(message.id)
+    reactions = [r for r in message.reactions if str(r.emoji) == "🎉"]
+    
+    if reactions:
+        users = []
+        async for user in reactions[0].users():
+            if not user.bot:
+                users.append(user)
+        
+        if len(users) >= kazanan:
+            winners = random.sample(users, kazanan)
+            winner_mentions = " ".join([w.mention for w in winners])
+            
+            # Kazanan duyurusu
+            embed_win = discord.Embed(
+                title="🎊 ÇEKİLİŞ BİTTİ!",
+                description=f"**🎁 Ödül:** {odul}\n\n**🏆 Kazananlar:**\n{winner_mentions}\n\n🎉 Tebrikler!",
+                color=0x00FF00
+            )
+            embed_win.set_thumbnail(url="https://media.tenor.com/KzQXE-sM_EEAAAAM/confetti.gif")
+            embed_win.timestamp = datetime.now(timezone.utc)
+            
+            await interaction.channel.send(content=winner_mentions, embed=embed_win)
+        else:
+            embed_fail = discord.Embed(
+                title="❌ ÇEKİLİŞ İPTAL",
+                description=f"Yeterli katılımcı yok!\n**Gerekli:** {kazanan}\n**Katılan:** {len(users)}",
+                color=0xFF0000
+            )
+            await interaction.channel.send(embed=embed_fail)
+    else:
+        await interaction.channel.send("❌ Çekilişe kimse katılmadı!")
+
+# ============== YARDIM MENÜSÜ (Kategorili) ==============
+
+class HelpView(discord.ui.View):
+    def __init__(self):
+        super().__init__(timeout=180)
+    
+    @discord.ui.select(
+        placeholder="📚 Kategori Seçin",
+        options=[
+            discord.SelectOption(label="📋 Tüm Komutlar", value="all", emoji="📋", description="Tüm komutları göster"),
+            discord.SelectOption(label="🛡️ Moderasyon", value="mod", emoji="🛡️", description="Ban, kick, mute vs."),
+            discord.SelectOption(label="🎭 Eğlence", value="fun", emoji="🎭", description="Şaka, oyun, gif komutları"),
+            discord.SelectOption(label="🎵 Müzik", value="music", emoji="🎵", description="Müzik çalma komutları"),
+            discord.SelectOption(label="📊 Bilgilendirme", value="info", emoji="📊", description="Kullanıcı/sunucu bilgileri"),
+            discord.SelectOption(label="🔧 Ayarlar", value="settings", emoji="🔧", description="Bot ayarları"),
+        ]
+    )
+    async def select_callback(self, interaction: discord.Interaction, select: discord.ui.Select):
+        category = select.values[0]
+        
+        embeds = {
+            "all": discord.Embed(
+                title="📋 Tüm Komutlar",
+                description="Bot'un tüm komutlarının listesi\n\n"
+                            "🛡️ **Moderasyon:** `/ban` `/kick` `/mute` `/warn` `/clear`\n"
+                            "🎭 **Eğlence:** `/joke` `/8ball` `/hug` `/kiss` `/slap` `/say`\n"
+                            "🎵 **Müzik:** `/play` `/skip` `/pause` `/resume` `/stop` `/queue`\n"
+                            "📊 **Bilgi:** `/userinfo` `/serverinfo` `/roleinfo` `/avatar` `/banner` `/ping`\n"
+                            "🔧 **Ayarlar:** `/antilink` `/antispam` `/slowmode` `/lock` `/unlock`\n"
+                            "🎁 **Diğer:** `/poll` `/cekilis` `/roller` `/rolver` `/rolal`",
+                color=0x5865F2
+            ),
+            "mod": discord.Embed(
+                title="🛡️ Moderasyon Komutları",
+                description="**`/ban <kullanıcı> <sebep>`** - Kullanıcıyı yasakla\n"
+                            "**`/kick <kullanıcı> <sebep>`** - Kullanıcıyı at\n"
+                            "**`/mute <kullanıcı> <dakika> <sebep>`** - Sustur\n"
+                            "**`/unmute <kullanıcı>`** - Susturmayı kaldır\n"
+                            "**`/warn <kullanıcı> <sebep>`** - Uyarı ver\n"
+                            "**`/clear <sayı>`** - Mesaj sil\n"
+                            "**`/lock`** - Kanalı kilitle\n"
+                            "**`/unlock`** - Kanalı aç\n"
+                            "**`/slowmode <saniye>`** - Yavaş mod\n"
+                            "**`/move <kullanıcı> <kanal>`** - Kullanıcıyı taşı",
+                color=0xFF0000
+            ),
+            "fun": discord.Embed(
+                title="🎭 Eğlence Komutları",
+                description="**`/joke`** - Rastgele şaka\n"
+                            "**`/8ball <soru>`** - Sihirli soru topu\n"
+                            "**`/say <mesaj>`** - Bota mesaj söylet\n"
+                            "**`/hug <kullanıcı>`** - Sarıl 🤗\n"
+                            "**`/kiss <kullanıcı>`** - Öpücük gönder 😘\n"
+                            "**`/slap <kullanıcı>`** - Tokat at 👋\n"
+                            "**`/poll <soru> <seçenekler>`** - Anket oluştur\n"
+                            "**`/cekilis <süre> <kazanan> <ödül>`** - Çekiliş başlat",
+                color=0xFFD700
+            ),
+            "music": discord.Embed(
+                title="🎵 Müzik Komutları",
+                description="**`/play <şarkı>`** - Şarkı çal\n"
+                            "**`/skip`** - Şarkıyı atla\n"
+                            "**`/pause`** - Duraklat\n"
+                            "**`/resume`** - Devam ettir\n"
+                            "**`/stop`** - Durdur ve çık\n"
+                            "**`/queue`** - Müzik kuyruğu",
+                color=0x1DB954
+            ),
+            "info": discord.Embed(
+                title="📊 Bilgilendirme Komutları",
+                description="**`/userinfo <kullanıcı>`** - Kullanıcı bilgisi\n"
+                            "**`/serverinfo`** - Sunucu bilgisi\n"
+                            "**`/roleinfo <rol>`** - Rol bilgisi\n"
+                            "**`/roller`** - Tüm rolleri göster\n"
+                            "**`/avatar <kullanıcı>`** - Avatar göster\n"
+                            "**`/banner <kullanıcı>`** - Banner göster\n"
+                            "**`/ping`** - Bot gecikmesi",
+                color=0x00FFFF
+            ),
+            "settings": discord.Embed(
+                title="🔧 Ayar Komutları",
+                description="**`/antilink <on/off>`** - Link engelleme\n"
+                            "**`/antispam <on/off>`** - Spam engelleme\n"
+                            "**`/rolver <kullanıcı> <rol>`** - Rol ver\n"
+                            "**`/rolal <kullanıcı> <rol>`** - Rol al\n"
+                            "**`/setstatus <mesaj>`** - Bot durumu (sadece owner)\n"
+                            "**`/setactivity <tür> <mesaj>`** - Bot aktivitesi (sadece owner)",
+                color=0xFF69B4
+            ),
+        }
+        
+        await interaction.response.edit_message(embed=embeds[category], view=self)
+
+@bot.tree.command(name="yardim", description="Bot komutlarını gösterir")
+async def yardim(interaction: discord.Interaction):
+    embed = discord.Embed(
+        title="🤖 Bot Yardım Menüsü",
+        description="Merhaba! Ben çok yetenekli bir Discord botuyum! 🚀\n\n"
+                    "Aşağıdaki menüden kategori seçerek komutları görüntüleyebilirsin!\n\n"
+                    "**📚 Kategoriler:**\n"
+                    "🛡️ Moderasyon\n"
+                    "🎭 Eğlence\n"
+                    "🎵 Müzik\n"
+                    "📊 Bilgilendirme\n"
+                    "🔧 Ayarlar",
+        color=0x5865F2
+    )
+    embed.set_thumbnail(url=bot.user.avatar.url if bot.user.avatar else None)
+    embed.set_footer(text="Menüden kategori seçin!")
+    embed.timestamp = datetime.now(timezone.utc)
+    
+    view = HelpView()
+    await interaction.response.send_message(embed=embed, view=view, ephemeral=True)
+
+# Botu çalıştır - TOKEN'ı buraya yazın
+bot.run("TOKEN")
