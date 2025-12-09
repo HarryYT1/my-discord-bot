@@ -1569,4 +1569,4 @@ async def yardim(interaction: discord.Interaction):
 
 # Botu çalıştır - TOKEN'ı buraya yazın
 import os
-bot.run(os.getenv("BOT_TOKEN"))
+bot.run(os.getenv("DISCORD_BOT_TOKEN"))
