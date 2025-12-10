@@ -1382,5 +1382,12 @@ async def yardim(interaction: discord.Interaction):
     view = HelpView()
     await interaction.response.send_message(embed=embed, view=view, ephemeral=True)
 
-# Botu çalıştır - TOKEN'ı buraya yazın
-bot.run("DISCORD_BOT_TOKEN")
+import os
+# ...
+TOKEN = os.getenv('DISCORD_BOT_TOKEN') # Railway'de ayarladığınız Key ile aynı olmalı
+
+if TOKEN is not None:
+    bot.run(TOKEN)
+else:
+    # Bu mesajı görürseniz, Railway'de değişkeni ayarlayamamışsınız demektir.
+    print("HATA: Ortam değişkeni 'DISCORD_BOT_TOKEN' okunamadı.")
