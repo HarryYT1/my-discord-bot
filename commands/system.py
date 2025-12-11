@@ -2,7 +2,6 @@ import discord
 from discord.ext import commands
 from discord import app_commands
 from config import OWNER_ID
-import os
 import asyncio
 
 
@@ -10,14 +9,12 @@ class System(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
 
-    # SADECE SAHİP KULLANABİLİR
     async def owner_check(self, interaction: discord.Interaction):
-        if interaction.user.id != 911655070817456139:
+        if interaction.user.id != OWNER_ID:
             await interaction.response.send_message("❌ Bu komutu sadece bot sahibi kullanabilir!", ephemeral=True)
             return False
         return True
 
-    # ========== SETSTATUS ==========
     @app_commands.command(name="setstatus", description="Botun durumunu ayarlar (online, idle, dnd, offline)")
     async def setstatus(self, interaction: discord.Interaction, status: str):
         if not await self.owner_check(interaction):
@@ -37,7 +34,6 @@ class System(commands.Cog):
         await self.bot.change_presence(status=durumlar[status])
         await interaction.response.send_message(f"✅ Durum değiştirildi: **{status}**")
 
-    # ========== SETACTIVITY ==========
     @app_commands.command(name="setactivity", description="Botun aktivitesini ayarlar")
     async def setactivity(self, interaction: discord.Interaction, activity: str, type: str):
         if not await self.owner_check(interaction):
@@ -59,7 +55,6 @@ class System(commands.Cog):
 
         await interaction.response.send_message(f"🎮 Aktivite değiştirildi: **{type} {activity}**")
 
-    # ========== SHUTDOWN ==========
     @app_commands.command(name="shutdown", description="Botu güvenli şekilde kapatır")
     async def shutdown(self, interaction: discord.Interaction):
         if not await self.owner_check(interaction):
@@ -69,19 +64,17 @@ class System(commands.Cog):
         await asyncio.sleep(1)
         await self.bot.close()
 
-    # ========== RELOAD ==========
     @app_commands.command(name="reload", description="Komut dosyasını yeniden yükler")
     async def reload(self, interaction: discord.Interaction, dosya: str):
         if not await self.owner_check(interaction):
             return
 
         try:
-            self.bot.reload_extension(f"commands.{dosya}")
+            await self.bot.reload_extension(f"commands.{dosya}")
             await interaction.response.send_message(f"♻️ `{dosya}` başarıyla yeniden yüklendi.")
         except Exception as e:
             await interaction.response.send_message(f"❌ Hata: `{e}`")
 
-    # ========== SYNC ==========
     @app_commands.command(name="sync", description="Slash komutlarını senkronize eder")
     async def sync(self, interaction: discord.Interaction):
         if not await self.owner_check(interaction):
