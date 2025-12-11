@@ -8,7 +8,6 @@ class Roles(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
 
-    # ========== ROLLER (SAYFALI) ==========
     @app_commands.command(name="roller", description="Sunucudaki rolleri sayfa sayfa gösterir")
     async def roller(self, interaction: discord.Interaction):
         guild = interaction.guild
@@ -21,13 +20,13 @@ class Roles(commands.Cog):
                 self.page_size = page_size
                 self.current_page = 0
                 self.total_pages = (len(roles_list) + page_size - 1) // page_size
-                self.filter_type = "all"
 
             def update_buttons(self):
                 self.children[0].label = f"Sayfa {self.current_page + 1}/{self.total_pages}"
 
             @discord.ui.button(label="Sayfa 1/1", style=discord.ButtonStyle.grey, disabled=True)
-            async def page_indicator(self, interaction: discord.Interaction, button): pass
+            async def page_indicator(self, interaction: discord.Interaction, button):
+                pass
 
             @discord.ui.button(label="◀️", style=discord.ButtonStyle.blurple)
             async def prev_page(self, interaction: discord.Interaction, button):
@@ -35,7 +34,7 @@ class Roles(commands.Cog):
                     self.current_page -= 1
                     await self.update_message(interaction)
 
-            @discord.ui.button(label="▶️", style=discord.Button.ButtonStyle.blurple)
+            @discord.ui.button(label="▶️", style=discord.ButtonStyle.blurple)
             async def next_page(self, interaction: discord.Interaction, button):
                 if self.current_page < self.total_pages - 1:
                     self.current_page += 1
@@ -71,7 +70,6 @@ class Roles(commands.Cog):
         embed.description = "\n".join(f"{role.mention} (`{len(role.members)}`)" for role in roles[:15])
         await interaction.response.send_message(embed=embed, view=view)
 
-    # ========== ROL VER ==========
     @app_commands.command(name="rolver", description="Bir kullanıcıya rol verir")
     async def rolver(self, interaction: discord.Interaction, kullanici: discord.Member, rol: discord.Role):
         if not interaction.user.guild_permissions.manage_roles:
@@ -88,7 +86,6 @@ class Roles(commands.Cog):
         except Exception as e:
             await interaction.response.send_message(f"Hata: {e}", ephemeral=True)
 
-    # ========== ROL AL ==========
     @app_commands.command(name="rolal", description="Bir kullanıcıdan rol alır")
     async def rolal(self, interaction: discord.Interaction, kullanici: discord.Member, rol: discord.Role):
         if not interaction.user.guild_permissions.manage_roles:
@@ -105,7 +102,6 @@ class Roles(commands.Cog):
         except Exception as e:
             await interaction.response.send_message(f"Hata: {e}", ephemeral=True)
 
-    # ========== ROLE INFO ==========
     @app_commands.command(name="roleinfo", description="Rol hakkında bilgi verir")
     async def roleinfo(self, interaction: discord.Interaction, rol: discord.Role):
         embed = discord.Embed(color=rol.color)
