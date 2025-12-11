@@ -1,3 +1,4 @@
+import asyncio
 import discord
 import asyncio
 # Eski/Hatalı youtube_dl yerine, aktif olarak güncellenen yt_dlp kullanılıyor.
@@ -64,3 +65,4 @@ class YTDLSource(discord.PCMVolumeTransformer):
         
         # FFmpegPCMAudio ile oynatıcıyı başlat
         return cls(discord.FFmpegPCMAudio(filename, **ffmpeg_options), data=data)
+
