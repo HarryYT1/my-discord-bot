@@ -9,12 +9,10 @@ class Fun(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
 
-    # ========== SAY ==========
     @app_commands.command(name="say", description="Bot yazdığınız mesajı tekrar eder")
     async def say(self, interaction: discord.Interaction, mesaj: str):
         await interaction.response.send_message(mesaj)
 
-    # ========== JOKE ==========
     @app_commands.command(name="joke", description="Rastgele bir şaka gönderir")
     async def joke(self, interaction: discord.Interaction):
         jokes = [
@@ -24,7 +22,6 @@ class Fun(commands.Cog):
         ]
         await interaction.response.send_message(random.choice(jokes))
 
-    # ========== 8BALL ==========
     @app_commands.command(name="sor", description="Bot sorunuza rastgele yanıt verir")
     async def sor(self, interaction: discord.Interaction, soru: str):
         cevaplar = [
@@ -43,7 +40,6 @@ class Fun(commands.Cog):
         )
         await interaction.response.send_message(embed=embed)
 
-    # ========== HUG ==========
     @app_commands.command(name="hug", description="Birini sarılırsınız")
     async def hug(self, interaction: discord.Interaction, kullanici: discord.Member):
         gifs = [
@@ -57,7 +53,6 @@ class Fun(commands.Cog):
         embed.set_image(url=random.choice(gifs))
         await interaction.response.send_message(embed=embed)
 
-    # ========== KISS ==========
     @app_commands.command(name="kiss", description="Birine öpücük gönderirsin")
     async def kiss(self, interaction: discord.Interaction, kullanici: discord.Member):
         gifs = [
@@ -71,7 +66,6 @@ class Fun(commands.Cog):
         embed.set_image(url=random.choice(gifs))
         await interaction.response.send_message(embed=embed)
 
-    # ========== SLAP ==========
     @app_commands.command(name="slap", description="Birine tokat atarsın")
     async def slap(self, interaction: discord.Interaction, kullanici: discord.Member):
         gifs = [
