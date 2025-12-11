@@ -21,7 +21,8 @@ ffmpeg_options = {
     "options": "-vn"
 }
 
-ytdl = youtube_dl.YoutubeDL(ytdl_format_options)
+import yt_dlp
+# VEYA from yt_dlp import YoutubeDL
 
 
 class YTDLSource(discord.PCMVolumeTransformer):
@@ -41,3 +42,4 @@ class YTDLSource(discord.PCMVolumeTransformer):
 
         filename = data["url"] if stream else ytdl.prepare_filename(data)
         return cls(discord.FFmpegPCMAudio(filename, **ffmpeg_options), data=data)
+
