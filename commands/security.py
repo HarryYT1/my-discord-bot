@@ -4,6 +4,7 @@ from discord import app_commands
 import re
 from datetime import datetime
 
+
 class Security(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
@@ -21,7 +22,6 @@ class Security(commands.Cog):
 
         self.reklam_pattern = r"(discord\.gg|invite|boost|nitro|takipçi|instagram\.com)"
 
-    # ====== FİLTRE AÇ/KAPAT ======
     @app_commands.command(name="filter", description="Filtreleri açıp kapatır")
     async def filter(self, interaction: discord.Interaction, filtre: str, durum: str):
         filtre = filtre.lower()
@@ -37,32 +37,26 @@ class Security(commands.Cog):
             f"🔧 `{filtre}` filtresi başarıyla **{durum}ıldı**."
         )
 
-    # ====== MESAJ EVENT (TÜM FİLTRELER BURADA) ======
     @commands.Cog.listener()
     async def on_message(self, msg: discord.Message):
-
         if msg.author.bot:
             return
         
-        # ===== Anti-Link =====
         if self.enabled_filters["antilink"]:
             if "http://" in msg.content or "https://" in msg.content:
                 await msg.delete()
                 return await msg.channel.send(f"❌ {msg.author.mention} Link paylaşmak yasak!", delete_after=5)
 
-        # ===== Küfür Filtresi =====
         if self.enabled_filters["antikufur"]:
             if any(k in msg.content.lower() for k in self.kufur_listesi):
                 await msg.delete()
                 return await msg.channel.send(f"❌ {msg.author.mention} Küfür yasak!", delete_after=5)
 
-        # ===== Reklam Engeli =====
         if self.enabled_filters["reklam"]:
             if re.search(self.reklam_pattern, msg.content.lower()):
                 await msg.delete()
                 return await msg.channel.send(f"📣 {msg.author.mention} Reklam yasak!", delete_after=5)
 
-        # ===== Anti-Spam =====
         if self.enabled_filters["antispam"]:
             user_id = msg.author.id
             if user_id not in self.antispam:
@@ -76,11 +70,10 @@ class Security(commands.Cog):
                     f"⛔ {msg.author.mention} Spam yapmayı bırak!", delete_after=5
                 )
 
-    # ====== Filtre Durumu ======
     @app_commands.command(name="filterstatus", description="Filtrelerin açık/kapalı durumunu gösterir")
     async def filterstatus(self, interaction: discord.Interaction):
         embed = discord.Embed(
-            title="🔐 Filtre Durumu",
+            title="🛡 Filtre Durumu",
             color=0x5865F2,
             timestamp=datetime.now()
         )
