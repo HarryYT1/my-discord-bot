@@ -2,14 +2,16 @@ import discord
 from discord import app_commands
 from discord.ext import commands
 from datetime import datetime, timezone
+import humanize # Süreleri daha okunaklı (örneğin "3 saat 15 dakika") göstermek için kullanılabilir.
 
+# Eğer humanize kütüphanesi kurulu değilse: pip install humanize
 
 class Info(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
 
     # ========== USERINFO ==========
-    @app_commands.command(name="userinfo", description="Kullanıcı bilgilerini gösterir")
+    @app_commands.command(name="userinfo", description="Kullanıcı bilgilerini ve aktiflik durumunu gösterir")
     async def userinfo(self, interaction: discord.Interaction, kullanici: discord.Member = None):
         kullanici = kullanici or interaction.user
         now = datetime.now(timezone.utc)
@@ -26,12 +28,55 @@ class Info(commands.Cog):
         # Banner al
         banner_url = None
         try:
+            # Kullanıcının banner bilgisini almak için fetch_user kullanılır
             user = await self.bot.fetch_user(kullanici.id)
             if user.banner:
                 banner_url = user.banner.url
         except:
             pass
+            
+        # 1. AKTİVİTE VE SÜRE HESAPLAMA
+        activities_info = "Şu anda bir etkinlik yapmıyor."
+        activities_list = []
+        
+        for activity in kullanici.activities:
+            info_line = None
+            
+            # Oyun aktivitesini kontrol et
+            if activity.type == discord.ActivityType.playing:
+                name = activity.name
+                duration_str = ""
+                
+                # Oynama süresini hesapla
+                if activity.start:
+                    duration = now - activity.start.replace(tzinfo=timezone.utc)
+                    total_seconds = int(duration.total_seconds())
+                    # humanize kullanılarak süreyi daha okunaklı hale getiriyoruz
+                    duration_str = f" (`{humanize.naturaldelta(duration)}`)"
+                    
+                info_line = f"🎮 **Oynuyor:** {name}{duration_str}"
 
+            # Streaming (Yayın) aktivitesi
+            elif activity.type == discord.ActivityType.streaming:
+                info_line = f"🔴 **Yayın:** {activity.name} / Platform: {activity.platform} [İzle]({activity.url})"
+            
+            # Listening (Dinleme) aktivitesi (Spotify)
+            elif activity.type == discord.ActivityType.listening and isinstance(activity, discord.Spotify):
+                # Spotify objesi detaylı bilgi içerir
+                info_line = f"🎧 **Dinliyor:** {activity.title} - {activity.artist} [Spotify]"
+            
+            # Özel Durum (Custom Status)
+            elif activity.type == discord.ActivityType.custom:
+                emoji = f"{activity.emoji} " if activity.emoji else ""
+                info_line = f"✨ **Özel Durum:** {emoji}{activity.name or 'Durum yok'}"
+                
+            if info_line:
+                activities_list.append(info_line)
+
+        if activities_list:
+            activities_info = "\n".join(activities_list)
+        
+        # 2. EMBED OLUŞTURMA
         embed = discord.Embed(
             color=kullanici.color if kullanici.color != discord.Color.default() else 0x2F3136,
             timestamp=datetime.now(timezone.utc)
@@ -43,6 +88,9 @@ class Info(commands.Cog):
         embed.add_field(name="👨‍💼 Takma Adı", value=f"```{kullanici.display_name}```", inline=True)
         embed.add_field(name="🆔 Kullanıcı ID", value=f"```{kullanici.id}```", inline=True)
         embed.add_field(name="🌐 Durum", value=durum_emoji.get(kullanici.status, "⚫ Bilinmiyor"), inline=True)
+
+        # ⭐️ YENİ AKTİVİTE ALANI
+        embed.add_field(name="🕹️ Aktif Etkinlikler", value=activities_info, inline=False) 
 
         # Sunucu Bilgileri
         embed.add_field(name="📅 Sunucuya Katılma", value=f"{kullanici.joined_at.strftime('%d %B %Y')}\n`{sunucu_yasi} gün önce`", inline=True)
@@ -63,6 +111,7 @@ class Info(commands.Cog):
     async def serverinfo(self, interaction: discord.Interaction):
         guild = interaction.guild
 
+        # Üye durumlarını saymak için kullanılan intent'ler açık olmalıdır (members ve presence)
         online = sum(1 for m in guild.members if m.status == discord.Status.online)
         idle = sum(1 for m in guild.members if m.status == discord.Status.idle)
         dnd = sum(1 for m in guild.members if m.status == discord.Status.dnd)
@@ -132,7 +181,8 @@ class Info(commands.Cog):
             else:
                 return await interaction.response.send_message("❌ Bu kullanıcının banner'ı yok!", ephemeral=True)
         except Exception as e:
-            return await interaction.response.send_message(f"Hata: {e}", ephemeral=True)
+            # Hata durumunda sadece kullanıcıya ephemeral (geçici) mesaj göndeririz
+            return await interaction.response.send_message("Banner bilgisi alınamadı.", ephemeral=True)
 
 
 async def setup(bot):
