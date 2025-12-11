@@ -2,6 +2,7 @@ import discord
 from discord.ext import commands
 from discord import app_commands
 from utils.music import YTDLSource
+import asyncio
 
 
 class Music(commands.Cog):
@@ -9,9 +10,8 @@ class Music(commands.Cog):
         self.bot = bot
         self.queue = {}
 
-    # ========== PLAY ==========
     @app_commands.command(name="play", description="Bir şarkı çalar")
-    async def play(self, interaction: discord.Interaction, *, arama: str):
+    async def play(self, interaction: discord.Interaction, arama: str):
         voice_channel = interaction.user.voice.channel if interaction.user.voice else None
 
         if not voice_channel:
@@ -22,11 +22,13 @@ class Music(commands.Cog):
         if guild_id not in self.queue:
             self.queue[guild_id] = []
 
-        # Şarkıyı indir
         await interaction.response.send_message("🎧 Şarkı aranıyor, lütfen bekleyin...")
-        player = await YTDLSource.from_url(arama, stream=True)
+        
+        try:
+            player = await YTDLSource.from_url(arama, stream=True)
+        except Exception as e:
+            return await interaction.followup.send(f"❌ Şarkı yüklenirken hata oluştu: {e}")
 
-        # Kuyruğa ekle
         self.queue[guild_id].append(player)
 
         if not interaction.guild.voice_client:
@@ -41,14 +43,21 @@ class Music(commands.Cog):
         guild_id = guild.id
         vc = guild.voice_client
 
-        if not self.queue[guild_id]:
+        if guild_id not in self.queue or not self.queue[guild_id]:
             return await vc.disconnect()
 
         player = self.queue[guild_id].pop(0)
 
-        vc.play(player, after=lambda e: asyncio.run_coroutine_threadsafe(self.oynat(guild), self.bot.loop))
+        def after_playing(error):
+            coro = self.oynat(guild)
+            fut = asyncio.run_coroutine_threadsafe(coro, self.bot.loop)
+            try:
+                fut.result()
+            except:
+                pass
 
-    # ========== SKIP ==========
+        vc.play(player, after=after_playing)
+
     @app_commands.command(name="skip", description="Çalan şarkıyı geçer")
     async def skip(self, interaction: discord.Interaction):
         if interaction.guild.voice_client and interaction.guild.voice_client.is_playing():
@@ -57,18 +66,17 @@ class Music(commands.Cog):
         else:
             await interaction.response.send_message("⛔ Şu anda çalan bir şarkı yok!")
 
-    # ========== STOP ==========
     @app_commands.command(name="stop", description="Müziği durdurur ve bot çıkar")
     async def stop(self, interaction: discord.Interaction):
         vc = interaction.guild.voice_client
         if vc:
+            if interaction.guild.id in self.queue:
+                self.queue[interaction.guild.id] = []
             await vc.disconnect()
-            self.queue[interaction.guild.id] = []
             await interaction.response.send_message("🛑 Müzik durduruldu ve bot kanaldan ayrıldı.")
         else:
             await interaction.response.send_message("❌ Bot ses kanalında değil!")
 
-    # ========== PAUSE ==========
     @app_commands.command(name="pause", description="Şarkıyı duraklatır")
     async def pause(self, interaction: discord.Interaction):
         vc = interaction.guild.voice_client
@@ -78,7 +86,6 @@ class Music(commands.Cog):
         else:
             await interaction.response.send_message("❌ Şu anda çalan bir şarkı yok!")
 
-    # ========== RESUME ==========
     @app_commands.command(name="resume", description="Şarkıyı devam ettirir")
     async def resume(self, interaction: discord.Interaction):
         vc = interaction.guild.voice_client
@@ -88,7 +95,6 @@ class Music(commands.Cog):
         else:
             await interaction.response.send_message("❌ Şarkı duraklatılmış değil!")
 
-    # ========== QUEUE ==========
     @app_commands.command(name="queue", description="Kuyruktaki şarkıları gösterir")
     async def queue(self, interaction: discord.Interaction):
         guild_id = interaction.guild.id
