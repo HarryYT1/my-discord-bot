@@ -25,5 +25,12 @@ async def on_ready():
         print(f"Hata: {e}")
 
 # Bot token buraya
-print("Bot başlatılıyor...")
-bot.run("TOKENİNİ_BURAYA_YAZ")
+# Ortam değişkeninden tokeni çekin
+TOKEN = os.getenv("DISCORD_TOKEN")
+
+if TOKEN:
+    print("Bot başlatılıyor...")
+    bot.run(TOKEN)
+else:
+    print("HATA: DISCORD_TOKEN ortam değişkeni bulunamadı. Bot başlatılamıyor.")
+
