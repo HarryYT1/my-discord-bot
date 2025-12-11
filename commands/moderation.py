@@ -9,7 +9,6 @@ class Moderation(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
 
-    # BAN
     @app_commands.command(name="ban", description="Bir kullanıcıyı sunucudan yasaklar")
     @app_commands.describe(kullanici="Yasaklanacak kullanıcı", sebep="Sebep")
     async def ban(self, interaction: discord.Interaction, kullanici: discord.Member, sebep: str = "Sebep belirtilmedi"):
@@ -27,7 +26,6 @@ class Moderation(commands.Cog):
         except Exception as e:
             await interaction.response.send_message(f"Hata: {e}", ephemeral=True)
 
-    # KICK
     @app_commands.command(name="kick", description="Bir kullanıcıyı sunucudan atar")
     async def kick(self, interaction: discord.Interaction, kullanici: discord.Member, sebep: str = "Sebep belirtilmedi"):
         if not interaction.user.guild_permissions.kick_members:
@@ -43,7 +41,6 @@ class Moderation(commands.Cog):
         except Exception as e:
             await interaction.response.send_message(f"Hata: {e}", ephemeral=True)
 
-    # MUTE
     @app_commands.command(name="mute", description="Kullanıcıyı susturur")
     async def mute(self, interaction: discord.Interaction, kullanici: discord.Member, dakika: int, sebep: str = "Sebep belirtilmedi"):
         if not interaction.user.guild_permissions.moderate_members:
@@ -61,7 +58,6 @@ class Moderation(commands.Cog):
         except Exception as e:
             await interaction.response.send_message(f"Hata: {e}", ephemeral=True)
 
-    # UNMUTE
     @app_commands.command(name="unmute", description="Susturmayı kaldırır")
     async def unmute(self, interaction: discord.Interaction, kullanici: discord.Member):
         if not interaction.user.guild_permissions.moderate_members:
@@ -76,7 +72,6 @@ class Moderation(commands.Cog):
         except Exception as e:
             await interaction.response.send_message(f"Hata: {e}", ephemeral=True)
 
-    # WARN
     @app_commands.command(name="warn", description="Kullanıcıyı uyarır")
     async def warn(self, interaction: discord.Interaction, kullanici: discord.Member, sebep: str):
         if not interaction.user.guild_permissions.moderate_members:
@@ -97,7 +92,6 @@ class Moderation(commands.Cog):
         embed.timestamp = datetime.now()
         await interaction.response.send_message(embed=embed)
 
-    # CLEAR
     @app_commands.command(name="clear", description="Mesaj temizler")
     async def clear(self, interaction: discord.Interaction, sayi: int):
         if not interaction.user.guild_permissions.manage_messages:
