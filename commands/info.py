@@ -8,7 +8,6 @@ class Info(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
 
-    # ========== USERINFO ==========
     @app_commands.command(name="userinfo", description="Kullanıcı bilgilerini gösterir")
     async def userinfo(self, interaction: discord.Interaction, kullanici: discord.Member = None):
         kullanici = kullanici or interaction.user
@@ -23,7 +22,6 @@ class Info(commands.Cog):
             discord.Status.offline: "⚫ Çevrimdışı"
         }
 
-        # Banner al
         banner_url = None
         try:
             user = await self.bot.fetch_user(kullanici.id)
@@ -39,16 +37,13 @@ class Info(commands.Cog):
         embed.set_author(name=f"{kullanici.name} Genel Bilgileri", icon_url=kullanici.avatar.url if kullanici.avatar else None)
         embed.set_thumbnail(url=kullanici.avatar.url if kullanici.avatar else kullanici.default_avatar.url)
 
-        # Genel Bilgiler
         embed.add_field(name="👨‍💼 Takma Adı", value=f"```{kullanici.display_name}```", inline=True)
         embed.add_field(name="🆔 Kullanıcı ID", value=f"```{kullanici.id}```", inline=True)
         embed.add_field(name="🌐 Durum", value=durum_emoji.get(kullanici.status, "⚫ Bilinmiyor"), inline=True)
 
-        # Sunucu Bilgileri
         embed.add_field(name="📅 Sunucuya Katılma", value=f"{kullanici.joined_at.strftime('%d %B %Y')}\n`{sunucu_yasi} gün önce`", inline=True)
         embed.add_field(name="📅 Hesap Yaşı", value=f"`{hesap_yasi} gün`", inline=True)
 
-        # Banner
         if banner_url:
             embed.add_field(name="🖼️ Banner", value=f"[Görüntüle]({banner_url})", inline=False)
             embed.set_image(url=banner_url)
@@ -58,7 +53,6 @@ class Info(commands.Cog):
         embed.set_footer(text=f"Sorgulayan: {interaction.user.name}")
         await interaction.response.send_message(embed=embed)
 
-    # ========== SERVERINFO ==========
     @app_commands.command(name="serverinfo", description="Sunucu bilgilerini gösterir")
     async def serverinfo(self, interaction: discord.Interaction):
         guild = interaction.guild
@@ -96,7 +90,6 @@ class Info(commands.Cog):
         embed.set_footer(text=f"Sorgulayan: {interaction.user.name}")
         await interaction.response.send_message(embed=embed)
 
-    # ========== PING ==========
     @app_commands.command(name="ping", description="Bot gecikmesini gösterir")
     async def ping(self, interaction: discord.Interaction):
         latency = round(self.bot.latency * 1000)
@@ -106,7 +99,6 @@ class Info(commands.Cog):
         embed.timestamp = datetime.now(timezone.utc)
         await interaction.response.send_message(embed=embed)
 
-    # ========== AVATAR ==========
     @app_commands.command(name="avatar", description="Kullanıcının avatarını gösterir")
     async def avatar(self, interaction: discord.Interaction, kullanici: discord.Member = None):
         kullanici = kullanici or interaction.user
@@ -117,7 +109,6 @@ class Info(commands.Cog):
         embed.timestamp = datetime.now(timezone.utc)
         await interaction.response.send_message(embed=embed)
 
-    # ========== BANNER ==========
     @app_commands.command(name="banner", description="Kullanıcının banner'ını gösterir")
     async def banner(self, interaction: discord.Interaction, kullanici: discord.Member = None):
         kullanici = kullanici or interaction.user
