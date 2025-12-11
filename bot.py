@@ -1,27 +1,27 @@
+
 import discord
 from discord.ext import commands
 import os
-
 from config import intents
 
 bot = commands.Bot(command_prefix="/", intents=intents)
 
 async def setup_extensions():
-    # Komutları asenkron olarak yükleme
     for filename in os.listdir("commands"):
         if filename.endswith(".py"):
             try:
                 await bot.load_extension(f"commands.{filename[:-3]}")
+                print(f"✅ Yüklendi: commands/{filename}")
             except Exception as e:
-                print(f'Hata: commands/{filename} yüklenirken sorun oluştu: {e}')
+                print(f'❌ Hata: commands/{filename} yüklenirken sorun oluştu: {e}')
 
-    # Eventleri asenkron olarak yükleme
     for filename in os.listdir("events"):
         if filename.endswith(".py"):
             try:
                 await bot.load_extension(f"events.{filename[:-3]}")
+                print(f"✅ Yüklendi: events/{filename}")
             except Exception as e:
-                print(f'Hata: events/{filename} yüklenirken sorun oluştu: {e}')
+                print(f'❌ Hata: events/{filename} yüklenirken sorun oluştu: {e}')
 
 bot.setup_hook = setup_extensions
 
