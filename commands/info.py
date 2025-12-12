@@ -8,23 +8,21 @@ class Info(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
 
-    # ========== USERINFO ==========
     @app_commands.command(name="userinfo", description="Kullanıcı bilgilerini gösterir")
-    @app_commands.describe(kullanici="Bilgilerini görmek istediğiniz kullanıcı")
-    async def userinfo(self, interaction: discord.Interaction, kullanici: discord.Member = None):
+    @app_commands.describe(kullanici="Bilgilerini görmek istediğiniz kullanıcı", gizli="Sadece siz görecek misiniz?")
+    async def userinfo(self, interaction: discord.Interaction, kullanici: discord.Member = None, gizli: bool = False):
         kullanici = kullanici or interaction.user
         now = datetime.now(timezone.utc)
         hesap_yasi = (now - kullanici.created_at).days
         sunucu_yasi = (now - kullanici.joined_at).days if kullanici.joined_at else 0
 
         durum_emoji = {
-            discord.Status.online: "🟢 𝐂𝐞𝐯𝐫𝐢𝐦𝐢𝐜𝐢",
-            discord.Status.idle: "🟡 𝐁𝐨𝐬𝐭𝐚",
-            discord.Status.dnd: "🔴 𝐑𝐚𝐡𝐚𝐭𝐬𝐢𝐳 𝐄𝐭𝐦𝐞𝐲𝐢𝐧",
-            discord.Status.offline: "⚫ 𝐂𝐞𝐯𝐫𝐢𝐦𝐝𝐢𝐬𝐢"
+            discord.Status.online: "🟢 Çevrimiçi",
+            discord.Status.idle: "🟡 Boşta",
+            discord.Status.dnd: "🔴 Rahatsız Etmeyin",
+            discord.Status.offline: "⚫ Çevrimdışı"
         }
 
-        # Banner al
         banner_url = None
         try:
             user = await self.bot.fetch_user(kullanici.id)
@@ -33,56 +31,65 @@ class Info(commands.Cog):
         except:
             pass
 
+        voice_channel = kullanici.voice.channel if kullanici.voice else None
+        activity = None
+        if kullanici.activities:
+            for act in kullanici.activities:
+                if isinstance(act, discord.Game):
+                    activity = f"🎮 {act.name}"
+                elif isinstance(act, discord.Streaming):
+                    activity = f"📺 {act.name}"
+                elif isinstance(act, discord.Spotify):
+                    activity = f"🎵 {act.title} - {act.artist}"
+                elif isinstance(act, discord.CustomActivity):
+                    activity = f"💭 {act.name}"
+
         embed = discord.Embed(
-            title=f"👤 {kullanici.name} 𝐁𝐢𝐥𝐠𝐢𝐥𝐞𝐫𝐢",
+            title="═════════════════════════",
+            description=f"# 👤 {kullanici.name}",
             color=kullanici.color if kullanici.color != discord.Color.default() else 0x5865F2
         )
         
-        # Genel Bilgiler
         embed.add_field(
-            name="📛 𝐓𝐚𝐤𝐦𝐚 𝐀𝐝",
-            value=f"```{kullanici.display_name}```",
-            inline=True
-        )
-        embed.add_field(
-            name="🆔 𝐊𝐮𝐥𝐥𝐚𝐧𝐢𝐜𝐢 𝐈𝐃",
-            value=f"```{kullanici.id}```",
-            inline=True
-        )
-        embed.add_field(
-            name="🌐 𝐃𝐮𝐫𝐮𝐦",
-            value=durum_emoji.get(kullanici.status, "⚫ 𝐁𝐢𝐥𝐢𝐧𝐦𝐢𝐲𝐨𝐫"),
-            inline=True
-        )
-
-        # Tarihler
-        embed.add_field(
-            name="📅 𝐒𝐮𝐧𝐮𝐜𝐮𝐲𝐚 𝐊𝐚𝐭𝐢𝐥𝐦𝐚",
-            value=f"<t:{int(kullanici.joined_at.timestamp())}:D>\n```{sunucu_yasi} gün önce```",
-            inline=True
-        )
-        embed.add_field(
-            name="🎂 𝐇𝐞𝐬𝐚𝐩 𝐎𝐥𝐮𝐬𝐭𝐮𝐫𝐦𝐚",
-            value=f"<t:{int(kullanici.created_at.timestamp())}:D>\n```{hesap_yasi} gün önce```",
-            inline=True
+            name="📌 𝗞𝘂𝗹𝗹𝗮𝗻𝗶𝗰𝗶 𝗕𝗶𝗹𝗴𝗶𝗹𝗲𝗿𝗶",
+            value=f"```ansi\n"
+                  f"──────────────────────\n"
+                  f"📛 Takma Adı: {kullanici.display_name}\n"
+                  f"🆔 Kullanıcı ID: {kullanici.id}\n"
+                  f"🟢 Durum: {durum_emoji.get(kullanici.status, '⚫ Bilinmiyor')}\n"
+                  f"🎮 Oynadığı Oyun: {activity if activity else 'Yok'}\n"
+                  f"📅 Discord'a Katılım: {kullanici.created_at.strftime('%d/%m/%Y')}\n"
+                  f"```",
+            inline=False
         )
         
-        # Roller
+        embed.add_field(
+            name="🏰 𝗦𝘂𝗻𝘂𝗰𝘂 𝗜̇𝘀𝘁𝗮𝘁𝗶𝘀𝘁𝗶𝗸𝗹𝗲𝗿𝗶",
+            value=f"```ansi\n"
+                  f"──────────────────────\n"
+                  f"📥 Sunucuya Katılım: {kullanici.joined_at.strftime('%d/%m/%Y') if kullanici.joined_at else 'Bilinmiyor'}\n"
+                  f"📅 Giriş Tarihi: {sunucu_yasi} gün önce\n"
+                  f"🚀 Boost Sayısı: {kullanici.premium_since.strftime('%d/%m/%Y') if kullanici.premium_since else 'Yok'}\n"
+                  f"🔊 Bulunduğu Ses Kanalı: {voice_channel.name if voice_channel else 'Yok'}\n"
+                  f"🛡 Yetki: {'Yönetici' if kullanici.guild_permissions.administrator else 'Üye'}\n"
+                  f"```",
+            inline=False
+        )
+
         if len(kullanici.roles) > 1:
-            roles = [role.mention for role in kullanici.roles[1:][:10]]  # İlk 10 rol
+            roles = [role.mention for role in sorted(kullanici.roles[1:], key=lambda r: r.position, reverse=True)[:10]]
             roles_text = ", ".join(roles)
             if len(kullanici.roles) > 11:
                 roles_text += f" +{len(kullanici.roles) - 11} daha"
             embed.add_field(
-                name=f"🎭 𝐑𝐨𝐥𝐥𝐞𝐫 ({len(kullanici.roles) - 1})",
+                name=f"🎭 𝗥𝗼𝗹𝗹𝗲𝗿 ({len(kullanici.roles) - 1})",
                 value=roles_text,
                 inline=False
             )
 
-        # Banner
         if banner_url:
             embed.add_field(
-                name="🖼️ 𝐁𝐚𝐧𝐧𝐞𝐫",
+                name="🖼️ 𝗕𝗮𝗻𝗻𝗲𝗿",
                 value=f"[Görüntüle]({banner_url})",
                 inline=True
             )
@@ -92,11 +99,11 @@ class Info(commands.Cog):
         embed.set_footer(text=f"Sorgulayan: {interaction.user.name}", icon_url=interaction.user.avatar.url if interaction.user.avatar else None)
         embed.timestamp = datetime.now(timezone.utc)
         
-        await interaction.response.send_message(embed=embed)
+        await interaction.response.send_message(embed=embed, ephemeral=gizli)
 
-    # ========== SERVERINFO ==========
     @app_commands.command(name="serverinfo", description="Sunucu bilgilerini gösterir")
-    async def serverinfo(self, interaction: discord.Interaction):
+    @app_commands.describe(gizli="Sadece siz görecek misiniz?")
+    async def serverinfo(self, interaction: discord.Interaction, gizli: bool = False):
         guild = interaction.guild
 
         online = sum(1 for m in guild.members if m.status == discord.Status.online)
@@ -106,56 +113,55 @@ class Info(commands.Cog):
         bot_count = sum(1 for m in guild.members if m.bot)
 
         embed = discord.Embed(
-            title=f"🏰 {guild.name} 𝐒𝐮𝐧𝐮𝐜𝐮 𝐁𝐢𝐥𝐠𝐢𝐥𝐞𝐫𝐢",
+            title=f"🏰 {guild.name}",
+            description="═════════════════════════",
             color=0x5865F2
         )
         
         embed.add_field(
-            name="🆔 𝐒𝐮𝐧𝐮𝐜𝐮 𝐈𝐃",
-            value=f"```{guild.id}```",
-            inline=True
+            name="📊 𝗚𝗲𝗻𝗲𝗹 𝗕𝗶𝗹𝗴𝗶𝗹𝗲𝗿",
+            value=f"```ansi\n"
+                  f"🆔 Sunucu ID: {guild.id}\n"
+                  f"👑 Sunucu Sahibi: {guild.owner.name}\n"
+                  f"📅 Oluşturulma: {guild.created_at.strftime('%d/%m/%Y')} ({(datetime.now(timezone.utc) - guild.created_at).days} gün)\n"
+                  f"💎 Boost Seviye: {guild.premium_tier}\n"
+                  f"🚀 Boost Sayısı: {guild.premium_subscription_count}\n"
+                  f"```",
+            inline=False
         )
+
         embed.add_field(
-            name="👑 𝐒𝐮𝐧𝐮𝐜𝐮 𝐒𝐚𝐡𝐢𝐛𝐢",
-            value=f"{guild.owner.mention}\n```{guild.owner.name}```",
-            inline=True
-        )
-        embed.add_field(
-            name="📅 𝐎𝐥𝐮𝐬𝐭𝐮𝐫𝐮𝐥𝐦𝐚",
-            value=f"<t:{int(guild.created_at.timestamp())}:D>\n```{(datetime.now(timezone.utc) - guild.created_at).days} gün```",
+            name=f"👥 𝗨̈𝘆𝗲𝗹𝗲𝗿 ({guild.member_count})",
+            value=f"```ansi\n"
+                  f"🟢 Çevrimiçi: {online}\n"
+                  f"🟡 Boşta: {idle}\n"
+                  f"🔴 Rahatsız: {dnd}\n"
+                  f"⚫ Çevrim Dışı: {offline}\n"
+                  f"🤖 Bot: {bot_count}\n"
+                  f"```",
             inline=True
         )
 
         embed.add_field(
-            name=f"👥 𝐔𝐲𝐞𝐥𝐞𝐫 ({guild.member_count})",
-            value=f"```🟢 Çevrimiçi: {online}\n🟡 Boşta: {idle}\n🔴 Rahatsız: {dnd}\n⚫ Çevrim Dışı: {offline}\n🤖 Bot: {bot_count}```",
-            inline=True
-        )
-
-        embed.add_field(
-            name=f"📝 𝐊𝐚𝐧𝐚𝐥𝐥𝐚𝐫 ({len(guild.channels)})",
-            value=f"```💬 Metin: {len(guild.text_channels)}\n🔊 Sesli: {len(guild.voice_channels)}\n📂 Kategori: {len(guild.categories)}```",
-            inline=True
-        )
-        
-        embed.add_field(
-            name=f"🎭 𝐑𝐨𝐥𝐥𝐞𝐫",
-            value=f"```{len(guild.roles)} rol```",
+            name=f"📁 𝗞𝗮𝗻𝗮𝗹𝗹𝗮𝗿 ({len(guild.channels)})",
+            value=f"```ansi\n"
+                  f"💬 Metin: {len(guild.text_channels)}\n"
+                  f"🔊 Sesli: {len(guild.voice_channels)}\n"
+                  f"📂 Kategori: {len(guild.categories)}\n"
+                  f"📢 Duyuru: {len([c for c in guild.channels if isinstance(c, discord.TextChannel) and c.is_news()])}\n"
+                  f"🧵 Forum: {len([c for c in guild.channels if isinstance(c, discord.ForumChannel)])}\n"
+                  f"```",
             inline=True
         )
         
-        # Boost bilgisi
         embed.add_field(
-            name="💎 𝐁𝐨𝐨𝐬𝐭",
-            value=f"```Seviye: {guild.premium_tier}\nBoost: {guild.premium_subscription_count}```",
-            inline=True
-        )
-        
-        # Emoji sayısı
-        embed.add_field(
-            name="😀 𝐄𝐦𝐨𝐣𝐢𝐥𝐞𝐫",
-            value=f"```{len(guild.emojis)} emoji```",
-            inline=True
+            name=f"🎭 𝗗𝗶𝗴̆𝗲𝗿",
+            value=f"```ansi\n"
+                  f"🎭 Roller: {len(guild.roles)}\n"
+                  f"😀 Emojiler: {len(guild.emojis)}\n"
+                  f"🎨 Stickerlar: {len(guild.stickers)}\n"
+                  f"```",
+            inline=False
         )
 
         if guild.icon:
@@ -167,11 +173,11 @@ class Info(commands.Cog):
         embed.set_footer(text=f"Sorgulayan: {interaction.user.name}", icon_url=interaction.user.avatar.url if interaction.user.avatar else None)
         embed.timestamp = datetime.now(timezone.utc)
         
-        await interaction.response.send_message(embed=embed)
+        await interaction.response.send_message(embed=embed, ephemeral=gizli)
 
-    # ========== PING ==========
     @app_commands.command(name="ping", description="Bot gecikmesini gösterir")
-    async def ping(self, interaction: discord.Interaction):
+    @app_commands.describe(gizli="Sadece siz görecek misiniz?")
+    async def ping(self, interaction: discord.Interaction, gizli: bool = False):
         latency = round(self.bot.latency * 1000)
         
         if latency < 100:
@@ -188,32 +194,32 @@ class Info(commands.Cog):
             status = "Yavaş"
         
         embed = discord.Embed(
-            title="🏓 𝐏𝐨𝐧𝐠!",
+            title="🏓 𝗣𝗼𝗻𝗴!",
             color=color
         )
         embed.add_field(
-            name="⚡ 𝐆𝐞𝐜𝐢𝐤𝐦𝐞",
+            name="⚡ 𝗚𝗲𝗰𝗶𝗸𝗺𝗲",
             value=f"```{latency} ms```",
             inline=True
         )
         embed.add_field(
-            name=f"{emoji} 𝐃𝐮𝐫𝐮𝐦",
+            name=f"{emoji} 𝗗𝘂𝗿𝘂𝗺",
             value=f"```{status}```",
             inline=True
         )
         embed.set_footer(text=f"Sorgulayan: {interaction.user.name}", icon_url=interaction.user.avatar.url if interaction.user.avatar else None)
         embed.timestamp = datetime.now(timezone.utc)
         
-        await interaction.response.send_message(embed=embed)
+        await interaction.response.send_message(embed=embed, ephemeral=gizli)
 
-    # ========== AVATAR ==========
     @app_commands.command(name="avatar", description="Kullanıcının avatarını gösterir")
-    @app_commands.describe(kullanici="Avatarını görmek istediğiniz kullanıcı")
-    async def avatar(self, interaction: discord.Interaction, kullanici: discord.Member = None):
+    @app_commands.describe(kullanici="Avatarını görmek istediğiniz kullanıcı", gizli="Sadece siz görecek misiniz?")
+    async def avatar(self, interaction: discord.Interaction, kullanici: discord.Member = None, gizli: bool = False):
         kullanici = kullanici or interaction.user
 
         embed = discord.Embed(
-            title=f"🖼️ {kullanici.name} 𝐀𝐯𝐚𝐭𝐚𝐫𝐢",
+            title=f"🖼️ {kullanici.name}",
+            description="═════════════════════════",
             color=kullanici.color if kullanici.color != discord.Color.default() else 0x5865F2
         )
         
@@ -221,47 +227,47 @@ class Info(commands.Cog):
         
         embed.set_image(url=avatar_url)
         embed.add_field(
-            name="🔗 𝐋𝐢𝐧𝐤",
+            name="🔗 𝗟𝗶𝗻𝗸",
             value=f"[Avatar URL]({avatar_url})",
             inline=False
         )
         embed.set_footer(text=f"Sorgulayan: {interaction.user.name}", icon_url=interaction.user.avatar.url if interaction.user.avatar else None)
         embed.timestamp = datetime.now(timezone.utc)
         
-        await interaction.response.send_message(embed=embed)
+        await interaction.response.send_message(embed=embed, ephemeral=gizli)
 
-    # ========== BANNER ==========
     @app_commands.command(name="banner", description="Kullanıcının banner'ını gösterir")
-    @app_commands.describe(kullanici="Banner'ını görmek istediğiniz kullanıcı")
-    async def banner(self, interaction: discord.Interaction, kullanici: discord.Member = None):
+    @app_commands.describe(kullanici="Banner'ını görmek istediğiniz kullanıcı", gizli="Sadece siz görecek misiniz?")
+    async def banner(self, interaction: discord.Interaction, kullanici: discord.Member = None, gizli: bool = False):
         kullanici = kullanici or interaction.user
         
         try:
             user = await self.bot.fetch_user(kullanici.id)
             if user.banner:
                 embed = discord.Embed(
-                    title=f"🎨 {kullanici.name} 𝐁𝐚𝐧𝐧𝐞𝐫𝐢",
+                    title=f"🎨 {kullanici.name}",
+                    description="═════════════════════════",
                     color=kullanici.color if kullanici.color != discord.Color.default() else 0x5865F2
                 )
                 embed.set_image(url=user.banner.url)
                 embed.add_field(
-                    name="🔗 𝐋𝐢𝐧𝐤",
+                    name="🔗 𝗟𝗶𝗻𝗸",
                     value=f"[Banner URL]({user.banner.url})",
                     inline=False
                 )
                 embed.set_footer(text=f"Sorgulayan: {interaction.user.name}", icon_url=interaction.user.avatar.url if interaction.user.avatar else None)
                 embed.timestamp = datetime.now(timezone.utc)
                 
-                return await interaction.response.send_message(embed=embed)
+                return await interaction.response.send_message(embed=embed, ephemeral=gizli)
             else:
                 embed = discord.Embed(
-                    description=f"❌ **{kullanici.mention} 𝐤𝐮𝐥𝐥𝐚𝐧𝐢𝐜𝐢𝐬𝐢𝐧𝐝𝐚 𝐛𝐚𝐧𝐧𝐞𝐫 𝐲𝐨𝐤!**",
+                    description=f"❌ **{kullanici.mention} kullanıcısında banner yok!**",
                     color=0xFF0000
                 )
                 return await interaction.response.send_message(embed=embed, ephemeral=True)
         except Exception as e:
             embed = discord.Embed(
-                description=f"❌ **𝐇𝐚𝐭𝐚:** ```{str(e)}```",
+                description=f"❌ **Hata:** ```{str(e)}```",
                 color=0xFF0000
             )
             return await interaction.response.send_message(embed=embed, ephemeral=True)
