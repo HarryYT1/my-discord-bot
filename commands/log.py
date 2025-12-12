@@ -50,7 +50,7 @@ class LogSystem(commands.Cog):
         app_commands.Choice(name="🎭 Rol Güncelleme", value="role_update"),
         app_commands.Choice(name="📢 Kanal Oluşturma", value="channel_create"),
         app_commands.Choice(name="🗑️ Kanal Silme", value="channel_delete"),
-        app_commands.Choice(name="📊 Ses Kanalı", value="voice_state"),
+        app_commands.Choice(name="🔊 Ses Kanalı", value="voice_state"),
         app_commands.Choice(name="⚙️ Sunucu Güncelleme", value="guild_update"),
         app_commands.Choice(name="🎤 Nickname Değişikliği", value="nickname_change"),
         app_commands.Choice(name="🛡️ Moderasyon", value="moderation")
@@ -58,7 +58,7 @@ class LogSystem(commands.Cog):
     async def log_setup(self, interaction: discord.Interaction, log_tipi: str, kanal: discord.TextChannel = None):
         if not interaction.user.guild_permissions.administrator:
             embed = discord.Embed(
-                description="❌ **Bu komutu kullanmak için yönetici yetkisi gerekli!**",
+                description="❌ **𝐁𝐮 𝐤𝐨𝐦𝐮𝐭𝐮 𝐤𝐮𝐥𝐥𝐚𝐧𝐦𝐚𝐤 𝐢𝐜𝐢𝐧 𝐲𝐨𝐧𝐞𝐭𝐢𝐜𝐢 𝐲𝐞𝐭𝐤𝐢𝐬𝐢 𝐠𝐞𝐫𝐞𝐤𝐥𝐢!**",
                 color=0xFF0000
             )
             return await interaction.response.send_message(embed=embed, ephemeral=True)
@@ -70,13 +70,13 @@ class LogSystem(commands.Cog):
 
         if kanal:
             self.log_settings[guild_id_str][log_tipi] = kanal.id
-            status = "✅ Aktive"
+            status = "✅ 𝐀𝐜𝐭𝐢𝐯𝐞"
             channel_info = kanal.mention
             color = 0x00FF00
         else:
             if log_tipi in self.log_settings[guild_id_str]:
                 del self.log_settings[guild_id_str][log_tipi]
-            status = "❌ Kapalı"
+            status = "❌ 𝐊𝐚𝐩𝐚𝐥𝐢"
             channel_info = "```Kapatıldı```"
             color = 0xFF0000
 
@@ -93,19 +93,19 @@ class LogSystem(commands.Cog):
             "role_update": "🎭 Rol Güncelleme",
             "channel_create": "📢 Kanal Oluşturma",
             "channel_delete": "🗑️ Kanal Silme",
-            "voice_state": "📊 Ses Kanalı",
+            "voice_state": "🔊 Ses Kanalı",
             "guild_update": "⚙️ Sunucu Güncelleme",
             "nickname_change": "🎤 Nickname Değişikliği",
             "moderation": "🛡️ Moderasyon"
         }
 
         embed = discord.Embed(
-            title="📋 Log Sistemi Ayarlandı",
+            title="📋 𝐋𝐨𝐠 𝐒𝐢𝐬𝐭𝐞𝐦𝐢 𝐀𝐲𝐚𝐫𝐥𝐚𝐧𝐝𝐢",
             color=color
         )
-        embed.add_field(name="📧 Log Tipi", value=f"```{log_names.get(log_tipi, log_tipi)}```", inline=True)
-        embed.add_field(name="📊 Durum", value=status, inline=True)
-        embed.add_field(name="📝 Kanal", value=channel_info, inline=False)
+        embed.add_field(name="🔧 𝐋𝐨𝐠 𝐓𝐢𝐩𝐢", value=f"```{log_names.get(log_tipi, log_tipi)}```", inline=True)
+        embed.add_field(name="📊 𝐃𝐮𝐫𝐮𝐦", value=status, inline=True)
+        embed.add_field(name="📍 𝐊𝐚𝐧𝐚𝐥", value=channel_info, inline=False)
         embed.set_footer(text=f"Ayarlayan: {interaction.user.name}", icon_url=interaction.user.avatar.url if interaction.user.avatar else None)
         embed.timestamp = datetime.now(timezone.utc)
 
@@ -118,13 +118,13 @@ class LogSystem(commands.Cog):
         
         if guild_id_str not in self.log_settings or not self.log_settings[guild_id_str]:
             embed = discord.Embed(
-                description="📋 **Hiç bir log ayarı yapılmamış!**",
+                description="📋 **𝐇𝐢𝐜 𝐛𝐢𝐫 𝐥𝐨𝐠 𝐚𝐲𝐚𝐫𝐢 𝐲𝐚𝐩𝐢𝐥𝐦𝐚𝐦𝐢𝐬!**",
                 color=0x5865F2
             )
             return await interaction.response.send_message(embed=embed)
 
         embed = discord.Embed(
-            title="📋 Aktif Log Ayarları",
+            title="📋 𝐀𝐤𝐭𝐢𝐟 𝐋𝐨𝐠 𝐀𝐲𝐚𝐫𝐥𝐚𝐫𝐢",
             description="```Sunucudaki aktif log ayarları```",
             color=0x5865F2
         )
@@ -140,7 +140,7 @@ class LogSystem(commands.Cog):
             "role_update": "🎭 Rol Güncelleme",
             "channel_create": "📢 Kanal Oluşturma",
             "channel_delete": "🗑️ Kanal Silme",
-            "voice_state": "📊 Ses Kanalı",
+            "voice_state": "🔊 Ses Kanalı",
             "guild_update": "⚙️ Sunucu Güncelleme",
             "nickname_change": "🎤 Nickname",
             "moderation": "🛡️ Moderasyon"
@@ -160,7 +160,7 @@ class LogSystem(commands.Cog):
 
         await interaction.response.send_message(embed=embed)
 
-    # ========== MESAJ SİLME LOGU (GÖRSEL 1 TARZI) ==========
+    # ========== MESAJ SİLME LOGU ==========
     @commands.Cog.listener()
     async def on_message_delete(self, message):
         if message.author.bot:
@@ -174,41 +174,19 @@ class LogSystem(commands.Cog):
         if not log_channel:
             return
 
-        # Mesaj sahibini al
-        author_name = f"{message.author.name}"
-        
         embed = discord.Embed(
-            description=f"**{author_name}** kişinin mesajı silindi.",
-            color=0x2F3136
+            title="🗑️ 𝐌𝐞𝐬𝐚𝐣 𝐒𝐢𝐥𝐢𝐧𝐝𝐢",
+            color=0xFF0000
         )
-        embed.set_author(name=author_name, icon_url=message.author.avatar.url if message.author.avatar else message.author.default_avatar.url)
+        embed.add_field(name="👤 𝐊𝐮𝐥𝐥𝐚𝐧𝐢𝐜𝐢", value=f"{message.author.mention}\n```{message.author.name}```", inline=True)
+        embed.add_field(name="📍 𝐊𝐚𝐧𝐚𝐥", value=f"{message.channel.mention}", inline=True)
+        embed.add_field(name="📝 𝐌𝐞𝐬𝐚𝐣", value=f"```{message.content[:1000] if message.content else 'Boş mesaj'}```", inline=False)
+        
+        if message.attachments:
+            embed.add_field(name="📎 𝐄𝐤 𝐃𝐨𝐬𝐲𝐚", value=f"```{len(message.attachments)} dosya```", inline=True)
+        
         embed.set_thumbnail(url=message.author.avatar.url if message.author.avatar else message.author.default_avatar.url)
-        
-        # Silinen Mesajın İçeriği
-        content = message.content if message.content else "*Mesaj içeriği yok*"
-        embed.add_field(name="📨 Silinen Mesajın İçeriği:", value=f"• 💬 {content[:1000]}", inline=False)
-        
-        # Mesaj Bilgileri
-        created_time = int(message.created_at.timestamp())
-        time_ago_text = f"<t:{created_time}:R>"
-        
-        mesaj_bilgileri = (
-            f"• 📝 **Mesaj Yazılış:** {message.created_at.strftime('%d %B %Y - %H:%M:%S')} ({time_ago_text})\n"
-            f"• 🌍 **Mesaj Silinme:** {datetime.now(timezone.utc).strftime('%d %B %Y - %H:%M:%S sonra')}\n"
-            f"• 🆔 **Mesaj Sahibi:** {message.author.mention} (`{message.author.id}`)"
-        )
-        embed.add_field(name="ℹ️ Mesaj Bilgileri:", value=mesaj_bilgileri, inline=False)
-        
-        # Mesajın Konumu
-        konum = (
-            f"• # **Mesajın Kanalı:** # ┃ {message.channel.mention}\n"
-            f"• ▶️ **Silindiği Yere Git**"
-        )
-        embed.add_field(name="📍 Mesajın Konumu:", value=konum, inline=False)
-        
-        # Mesaj Silen (Eğer bulunabilirse)
-        embed.add_field(name="👤 Mesaj Silen:", value=f"**{author_name}** *(veya bir yetkili)*", inline=False)
-        
+        embed.set_footer(text=f"Mesaj ID: {message.id}")
         embed.timestamp = datetime.now(timezone.utc)
 
         await log_channel.send(embed=embed)
@@ -227,44 +205,23 @@ class LogSystem(commands.Cog):
         if not log_channel:
             return
 
-        author_name = f"{before.author.name}"
-        
         embed = discord.Embed(
-            description=f"**{author_name}** kişinin mesajı düzenlendi.",
-            color=0x2F3136
+            title="✏️ 𝐌𝐞𝐬𝐚𝐣 𝐃𝐮𝐳𝐞𝐧𝐥𝐞𝐧𝐝𝐢",
+            color=0xFFA500
         )
-        embed.set_author(name=author_name, icon_url=before.author.avatar.url if before.author.avatar else before.author.default_avatar.url)
+        embed.add_field(name="👤 𝐊𝐮𝐥𝐥𝐚𝐧𝐢𝐜𝐢", value=f"{before.author.mention}\n```{before.author.name}```", inline=True)
+        embed.add_field(name="📍 𝐊𝐚𝐧𝐚𝐥", value=f"{before.channel.mention}", inline=True)
+        embed.add_field(name="📝 𝐄𝐬𝐤𝐢 𝐌𝐞𝐬𝐚𝐣", value=f"```{before.content[:500] if before.content else 'Boş'}```", inline=False)
+        embed.add_field(name="✨ 𝐘𝐞𝐧𝐢 𝐌𝐞𝐬𝐚𝐣", value=f"```{after.content[:500] if after.content else 'Boş'}```", inline=False)
+        embed.add_field(name="🔗 𝐌𝐞𝐬𝐚𝐣 𝐋𝐢𝐧𝐤𝐢", value=f"[Git]({after.jump_url})", inline=False)
+        
         embed.set_thumbnail(url=before.author.avatar.url if before.author.avatar else before.author.default_avatar.url)
-        
-        # Eski ve Yeni Mesaj
-        embed.add_field(
-            name="📝 Eski Mesaj:",
-            value=f"```{before.content[:500] if before.content else 'Boş mesaj'}```",
-            inline=False
-        )
-        embed.add_field(
-            name="✨ Yeni Mesaj:",
-            value=f"```{after.content[:500] if after.content else 'Boş mesaj'}```",
-            inline=False
-        )
-        
-        # Mesaj Bilgileri
-        created_time = int(before.created_at.timestamp())
-        mesaj_bilgileri = (
-            f"• 📝 **Mesaj Yazılış:** {before.created_at.strftime('%d %B %Y - %H:%M:%S')} (<t:{created_time}:R>)\n"
-            f"• 🆔 **Mesaj Sahibi:** {before.author.mention} (`{before.author.id}`)"
-        )
-        embed.add_field(name="ℹ️ Mesaj Bilgileri:", value=mesaj_bilgileri, inline=False)
-        
-        # Mesajın Konumu
-        konum = f"• # **Mesajın Kanalı:** # ┃ {before.channel.mention}\n• [▶️ Mesaja Git]({after.jump_url})"
-        embed.add_field(name="📍 Mesajın Konumu:", value=konum, inline=False)
-        
+        embed.set_footer(text=f"Mesaj ID: {before.id}")
         embed.timestamp = datetime.now(timezone.utc)
 
         await log_channel.send(embed=embed)
 
-    # ========== ÜYE GİRİŞ LOGU (GÖRSEL 3 TARZI) ==========
+    # ========== ÜYE GİRİŞ LOGU ==========
     @commands.Cog.listener()
     async def on_member_join(self, member):
         channel_id = self.get_log_channel(member.guild.id, "member_join")
@@ -276,54 +233,17 @@ class LogSystem(commands.Cog):
             return
 
         embed = discord.Embed(
-            description=f"**Sunucuya bir üye katıldı:**",
-            color=0x2F3136
+            title="👋 𝐘𝐞𝐧𝐢 𝐔𝐲𝐞 𝐊𝐚𝐭𝐢𝐥𝐝𝐢",
+            description=f"```{member.guild.name} sunucusuna hoş geldin!```",
+            color=0x00FF00
         )
+        embed.add_field(name="👤 𝐊𝐮𝐥𝐥𝐚𝐧𝐢𝐜𝐢", value=f"{member.mention}\n```{member.name}```", inline=True)
+        embed.add_field(name="🆔 𝐈𝐃", value=f"```{member.id}```", inline=True)
+        embed.add_field(name="📅 𝐇𝐞𝐬𝐚𝐩 𝐎𝐥𝐮𝐬𝐭𝐮𝐫𝐦𝐚", value=f"<t:{int(member.created_at.timestamp())}:R>", inline=True)
+        embed.add_field(name="👥 𝐓𝐨𝐩𝐥𝐚𝐦 𝐔𝐲𝐞", value=f"```{member.guild.member_count}```", inline=True)
         
-        # Üye bilgisi
-        embed.add_field(
-            name="👤 Üye:",
-            value=f"• {member.mention}",
-            inline=False
-        )
-        
-        # Discord'a Kayıt Tarihi
-        created_timestamp = int(member.created_at.timestamp())
-        embed.add_field(
-            name="📅 Discord'a Kayıt Tarihi:",
-            value=f"• 🕐 {member.created_at.strftime('%d %B %Y - %H:%M:%S')} (<t:{created_timestamp}:R>)",
-            inline=False
-        )
-        
-        # Davet Eden Kişi (Bu özellik için invite tracking gerekir, şimdilik gösterilmedi)
-        embed.add_field(
-            name="🎟️ Davet Eden Kişi:",
-            value="• 👤 **• Davet Alınamadı**",
-            inline=False
-        )
-        
-        # Davet Sayısı
-        embed.add_field(
-            name="🎫 Davet Sayısı:",
-            value="• 🎟️ **• Davet Alınamadı**",
-            inline=False
-        )
-        
-        # Davet Kodu
-        embed.add_field(
-            name="🔗 Davet Kodu:",
-            value="• 🔗 **• Davet Alınamadı**",
-            inline=False
-        )
-        
-        # İstatistikler
-        embed.add_field(
-            name="📊 İstatistikler:",
-            value=f"• 🎯 **Hedef:** {member.guild.member_count} **• Üye Sayı:** 🎖️ {len([m for m in member.guild.members if not m.bot])} **• Kalan:** {member.guild.member_count - len([m for m in member.guild.members if not m.bot])}",
-            inline=False
-        )
-        
-        embed.set_thumbnail(url=member.guild.icon.url if member.guild.icon else None)
+        embed.set_thumbnail(url=member.avatar.url if member.avatar else member.default_avatar.url)
+        embed.set_footer(text=f"Üye #{member.guild.member_count}")
         embed.timestamp = datetime.now(timezone.utc)
 
         await log_channel.send(embed=embed)
@@ -340,32 +260,25 @@ class LogSystem(commands.Cog):
             return
 
         embed = discord.Embed(
-            description=f"**Sunucudan bir üye ayrıldı:**",
-            color=0x2F3136
+            title="🚪 𝐔𝐲𝐞 𝐀𝐲𝐫𝐢𝐥𝐝𝐢",
+            description=f"```{member.name} sunucudan ayrıldı```",
+            color=0xFF0000
         )
-        
-        embed.add_field(name="👤 Üye:", value=f"• {member.mention}", inline=False)
+        embed.add_field(name="👤 𝐊𝐮𝐥𝐥𝐚𝐧𝐢𝐜𝐢", value=f"{member.mention}\n```{member.name}```", inline=True)
+        embed.add_field(name="🆔 𝐈𝐃", value=f"```{member.id}```", inline=True)
         
         if member.joined_at:
-            joined_timestamp = int(member.joined_at.timestamp())
-            embed.add_field(
-                name="📅 Sunucuya Katılım Tarihi:",
-                value=f"• 🕐 {member.joined_at.strftime('%d %B %Y - %H:%M:%S')} (<t:{joined_timestamp}:R>)",
-                inline=False
-            )
+            days = (datetime.now(timezone.utc) - member.joined_at).days
+            embed.add_field(name="⏰ 𝐒𝐮𝐧𝐮𝐜𝐮𝐝𝐚 𝐊𝐚𝐥𝐢𝐬 𝐒𝐮𝐫𝐞𝐬𝐢", value=f"```{days} gün```", inline=True)
         
-        embed.add_field(
-            name="📊 İstatistikler:",
-            value=f"• 🎯 **Kalan Üye:** {member.guild.member_count}",
-            inline=False
-        )
+        embed.add_field(name="👥 𝐊𝐚𝐥𝐚𝐧 𝐔𝐲𝐞", value=f"```{member.guild.member_count}```", inline=True)
         
-        embed.set_thumbnail(url=member.guild.icon.url if member.guild.icon else None)
+        embed.set_thumbnail(url=member.avatar.url if member.avatar else member.default_avatar.url)
         embed.timestamp = datetime.now(timezone.utc)
 
         await log_channel.send(embed=embed)
 
-    # ========== BAN LOGU (GÖRSEL 6 TARZI) ==========
+    # ========== BAN LOGU ==========
     @commands.Cog.listener()
     async def on_member_ban(self, guild, user):
         channel_id = self.get_log_channel(guild.id, "member_ban")
@@ -376,77 +289,13 @@ class LogSystem(commands.Cog):
         if not log_channel:
             return
 
-        # Audit log'dan ban bilgisini al
-        ban_reason = "Sebep belirtilmedi"
-        banner = None
-        
-        async for entry in guild.audit_logs(limit=1, action=discord.AuditLogAction.ban):
-            if entry.target.id == user.id:
-                ban_reason = entry.reason or "Sebep belirtilmedi"
-                banner = entry.user
-                break
-
         embed = discord.Embed(
-            description=f"**{user.name}** adlı kişi sunucudan yasaklandı~",
-            color=0x2F3136
+            title="🔨 𝐔𝐲𝐞 𝐘𝐚𝐬𝐚𝐤𝐥𝐚𝐧𝐝𝐢",
+            color=0xFF0000
         )
+        embed.add_field(name="👤 𝐊𝐮𝐥𝐥𝐚𝐧𝐢𝐜𝐢", value=f"```{user.name}\nID: {user.id}```", inline=True)
+        
         embed.set_thumbnail(url=user.avatar.url if user.avatar else user.default_avatar.url)
-        
-        # Ban Sebebi
-        embed.add_field(
-            name="📋 Ban Sebebi:",
-            value=f"• 💬 {ban_reason}",
-            inline=False
-        )
-        
-        # Yasaklanan Kişi
-        embed.add_field(
-            name="🚫 Yasaklanan Kişi:",
-            value=f"• 🆔 <@{user.id}> (`{user.id}`)",
-            inline=False
-        )
-        
-        # Banlayan Yetkili
-        if banner:
-            embed.add_field(
-                name="👮 Banlayan Yetkili:",
-                value=f"• 👤 {banner.mention}",
-                inline=False
-            )
-        
-        # Banlandığı Kanal
-        embed.add_field(
-            name="🏠 Banlandığı Kanal:",
-            value=f"• ## # ┃ **Sunucu Genel**",
-            inline=False
-        )
-        
-        # Yetkililerin Ban Sayısı
-        if banner:
-            # Bu özellik için veri tabanı gerekir, şimdilik statik
-            embed.add_field(
-                name="🔢 Yetkililerin Ban Sayısı:",
-                value=f"• 🔥 4",
-                inline=False
-            )
-        
-        # Ban Tarihi
-        ban_time = datetime.now(timezone.utc)
-        ban_timestamp = int(ban_time.timestamp())
-        time_ago = (datetime.now(timezone.utc) - ban_time).days
-        embed.add_field(
-            name="📅 Ban Tarihi:",
-            value=f"• 📅 {ban_time.strftime('%d %B %Y - %H:%M:%S')} ({time_ago} gün önce)",
-            inline=False
-        )
-        
-        # Mesaja Git butonu
-        embed.add_field(
-            name="📨 İşlemler:",
-            value="• ▶️ **Mesaja git**",
-            inline=False
-        )
-        
         embed.timestamp = datetime.now(timezone.utc)
 
         await log_channel.send(embed=embed)
@@ -462,116 +311,18 @@ class LogSystem(commands.Cog):
         if not log_channel:
             return
 
-        unbanner = None
-        async for entry in guild.audit_logs(limit=1, action=discord.AuditLogAction.unban):
-            if entry.target.id == user.id:
-                unbanner = entry.user
-                break
-
         embed = discord.Embed(
-            description=f"**{user.name}** adlı kişinin yasağı kaldırıldı.",
-            color=0x2F3136
+            title="✅ 𝐘𝐚𝐬𝐚𝐤 𝐊𝐚𝐥𝐝𝐢𝐫𝐢𝐥𝐝𝐢",
+            color=0x00FF00
         )
+        embed.add_field(name="👤 𝐊𝐮𝐥𝐥𝐚𝐧𝐢𝐜𝐢", value=f"```{user.name}\nID: {user.id}```", inline=True)
+        
         embed.set_thumbnail(url=user.avatar.url if user.avatar else user.default_avatar.url)
-        
-        embed.add_field(name="🚫 Yasağı Kaldırılan:", value=f"• 🆔 <@{user.id}> (`{user.id}`)", inline=False)
-        
-        if unbanner:
-            embed.add_field(name="👮 Yasağı Kaldıran:", value=f"• 👤 {unbanner.mention}", inline=False)
-        
-        unban_time = datetime.now(timezone.utc)
-        embed.add_field(
-            name="📅 Yasak Kaldırma Tarihi:",
-            value=f"• 📅 {unban_time.strftime('%d %B %Y - %H:%M:%S')}",
-            inline=False
-        )
-        
         embed.timestamp = datetime.now(timezone.utc)
 
         await log_channel.send(embed=embed)
 
-    # ========== EMOJİ EKLEME LOGU (GÖRSEL 4 TARZI) ==========
-    @commands.Cog.listener()
-    async def on_guild_emojis_update(self, guild, before, after):
-        channel_id = self.get_log_channel(guild.id, "guild_update")
-        if not channel_id:
-            return
-
-        log_channel = guild.get_channel(channel_id)
-        if not log_channel:
-            return
-
-        # Yeni emoji eklendi mi?
-        if len(after) > len(before):
-            new_emoji = [e for e in after if e not in before][0]
-            
-            # Ekleyen kişiyi bul
-            adder = None
-            async for entry in guild.audit_logs(limit=1, action=discord.AuditLogAction.emoji_create):
-                if entry.target.id == new_emoji.id:
-                    adder = entry.user
-                    break
-            
-            embed = discord.Embed(
-                description=f"**{adder.name if adder else 'Bilinmeyen Kişi'}** sunucuya bir emoji ekledi.",
-                color=0x2F3136
-            )
-            embed.set_thumbnail(url=new_emoji.url)
-            
-            embed.add_field(
-                name="📝 Eklenen Emojinin Adı:",
-                value=f"• ❤️ {new_emoji.name}",
-                inline=False
-            )
-            
-            embed.add_field(
-                name="🆔 Eklenen Emojinin ID'i:",
-                value=f"• 🆔 `{new_emoji.id}`",
-                inline=False
-            )
-            
-            embed.add_field(
-                name="ℹ️ Ekleme Sebebi:",
-                value=f"• ℹ️ **Emojiyi sunucuya ekle butonu ({adder.name if adder else 'Bilinmeyen'})**",
-                inline=False
-            )
-            
-            # Emoji istatistikleri
-            animated_count = len([e for e in guild.emojis if e.animated])
-            static_count = len([e for e in guild.emojis if not e.animated])
-            
-            embed.add_field(
-                name="📊 Sunucudaki Hareketli Emoji Sayısı:",
-                value=f"• 📊 **{animated_count}/{guild.emoji_limit}**",
-                inline=False
-            )
-            
-            embed.add_field(
-                name="📊 Sunucudaki Hareketsiz Emoji Sayısı:",
-                value=f"• 😊 **{static_count}/{guild.emoji_limit}**",
-                inline=False
-            )
-            
-            # Ekleyen kişi
-            if adder:
-                embed.add_field(
-                    name="👤 Ekleyen Kişi:",
-                    value=f"• **{adder.mention}**",
-                    inline=False
-                )
-            
-            # Butonlar
-            embed.add_field(
-                name="🔘 İşlemler:",
-                value="• 🗑️ **Emojiyi Sil** • 🔄 **Emojinin İsmini Değiştir** • 😊 **Emojiler**",
-                inline=False
-            )
-            
-            embed.timestamp = datetime.now(timezone.utc)
-            
-            await log_channel.send(embed=embed)
-
-    # ========== SES KANALI LOGU (GÖRSEL 7 - SADECE ÇIKIŞ) ==========
+    # ========== SES KANALI LOGU ==========
     @commands.Cog.listener()
     async def on_voice_state_update(self, member, before, after):
         channel_id = self.get_log_channel(member.guild.id, "voice_state")
@@ -582,90 +333,39 @@ class LogSystem(commands.Cog):
         if not log_channel:
             return
 
-        # SADECE KANALDAN ÇIKIŞ
-        if before.channel is not None and after.channel is None:
-            # Kanalda kalma süresini hesapla (bu özellik için tracking gerekir)
-            # Şimdilik örnek süre
-            
-            now = datetime.now(timezone.utc)
-            
-            # Kanal bilgileri
-            channel_name = before.channel.name
-            channel_emoji = "🔊"  # Ses kanalı emojisi
-            
+        if before.channel is None and after.channel is not None:
+            # Kanala katıldı
             embed = discord.Embed(
-                description=f"**{member.mention}** kişisi **{channel_emoji} )** **{channel_name}** kanalında **11 Dakika 24 Saniye** kaldı bu kanala **{now.strftime('%d %B %Y %H:%M')}** tarihinde giriş yapmıştı",
-                color=0x2F3136
+                title="🔊 𝐒𝐞𝐬 𝐊𝐚𝐧𝐚𝐥𝐢𝐧𝐚 𝐊𝐚𝐭𝐢𝐥𝐝𝐢",
+                color=0x00FF00
             )
-            embed.set_thumbnail(url=member.avatar.url if member.avatar else member.default_avatar.url)
+            embed.add_field(name="👤 𝐊𝐮𝐥𝐥𝐚𝐧𝐢𝐜𝐢", value=f"{member.mention}", inline=True)
+            embed.add_field(name="📢 𝐊𝐚𝐧𝐚𝐥", value=f"```{after.channel.name}```", inline=True)
             
-            embed.timestamp = datetime.now(timezone.utc)
+        elif before.channel is not None and after.channel is None:
+            # Kanaldan ayrıldı
+            embed = discord.Embed(
+                title="🔇 𝐒𝐞𝐬 𝐊𝐚𝐧𝐚𝐥𝐢𝐧𝐝𝐚𝐧 𝐀𝐲𝐫𝐢𝐥𝐝𝐢",
+                color=0xFF0000
+            )
+            embed.add_field(name="👤 𝐊𝐮𝐥𝐥𝐚𝐧𝐢𝐜𝐢", value=f"{member.mention}", inline=True)
+            embed.add_field(name="📢 𝐊𝐚𝐧𝐚𝐥", value=f"```{before.channel.name}```", inline=True)
             
-            await log_channel.send(embed=embed)
-
-    # ========== ÇEKİLİŞ LOGU (GÖRSEL 5 TARZI) ==========
-    async def log_giveaway_end(self, guild_id, winner, prize, duration):
-        """Çekiliş bittiğinde log at"""
-        channel_id = self.get_log_channel(guild_id, "moderation")
-        if not channel_id:
+        elif before.channel != after.channel:
+            # Kanal değiştirdi
+            embed = discord.Embed(
+                title="🔄 𝐒𝐞𝐬 𝐊𝐚𝐧𝐚𝐥𝐢 𝐃𝐞𝐠𝐢𝐬𝐭𝐢𝐫𝐝𝐢",
+                color=0xFFA500
+            )
+            embed.add_field(name="👤 𝐊𝐮𝐥𝐥𝐚𝐧𝐢𝐜𝐢", value=f"{member.mention}", inline=True)
+            embed.add_field(name="📢 𝐄𝐬𝐤𝐢", value=f"```{before.channel.name}```", inline=True)
+            embed.add_field(name="📢 𝐘𝐞𝐧𝐢", value=f"```{after.channel.name}```", inline=True)
+        else:
             return
 
-        guild = self.bot.get_guild(guild_id)
-        if not guild:
-            return
-
-        log_channel = guild.get_channel(channel_id)
-        if not log_channel:
-            return
-
-        embed = discord.Embed(
-            description=f"**Hot N Cold** zaman aşımı uygulandı.",
-            color=0x2F3136
-        )
-        embed.set_thumbnail(url=winner.avatar.url if winner.avatar else winner.default_avatar.url)
-        
-        embed.add_field(
-            name="🎁 Ceza Alan:",
-            value=f"• 👤 {winner.mention}",
-            inline=False
-        )
-        
-        embed.add_field(
-            name="🎁 Ceza Veren:",
-            value=f"• 🏆 @Hot N Cold (Hot N Cold)",
-            inline=False
-        )
-        
-        embed.add_field(
-            name="🎯 Ceza Sebep:",
-            value=f"• ℹ️ Sebep belirtilmedi",
-            inline=False
-        )
-        
-        # Yetkililerin Mute Sayısı
-        embed.add_field(
-            name="🔢 Yetkililerin Mute Sayısı:",
-            value=f"• ⏰ 9",
-            inline=False
-        )
-        
-        # Cezalının Aldığı Mute Sayısı
-        embed.add_field(
-            name="🔢 Cezalının Aldığı Mute Sayısı:",
-            value=f"• ⏰ 1",
-            inline=False
-        )
-        
-        # Ceza Bitiş
-        end_time = datetime.now(timezone.utc)
-        embed.add_field(
-            name="⏰ Ceza Bitiş:",
-            value=f"• 📅 {end_time.strftime('%d %B %Y - %H:%M:%S')} (5 gün önce)",
-            inline=False
-        )
-        
+        embed.set_thumbnail(url=member.avatar.url if member.avatar else member.default_avatar.url)
         embed.timestamp = datetime.now(timezone.utc)
-        
+
         await log_channel.send(embed=embed)
 
 
