@@ -12,8 +12,12 @@ class Moderation(commands.Cog):
 
     # ========== BAN ==========
     @app_commands.command(name="ban", description="Bir kullanıcıyı sunucudan yasaklar")
-    @app_commands.describe(kullanici="Yasaklanacak kullanıcı", sebep="Yasaklama sebebi")
-    async def ban(self, interaction: discord.Interaction, kullanici: discord.Member, sebep: str = "Sebep belirtilmedi"):
+    @app_commands.describe(
+        kullanici="Yasaklanacak kullanıcı",
+        sebep="Yasaklama sebebi",
+        gizli="Sadece siz görecek misiniz? (Evet/Hayır)"
+    )
+    async def ban(self, interaction: discord.Interaction, kullanici: discord.Member, sebep: str = "Sebep belirtilmedi", gizli: bool = False):
         if not interaction.user.guild_permissions.ban_members:
             embed = discord.Embed(
                 description="❌ **𝐁𝐮 𝐤𝐨𝐦𝐮𝐭𝐮 𝐤𝐮𝐥𝐥𝐚𝐧𝐦𝐚𝐤 𝐢𝐜𝐢𝐧 '𝐔𝐲𝐞𝐥𝐞𝐫𝐢 𝐘𝐚𝐬𝐚𝐤𝐥𝐚' 𝐲𝐞𝐭𝐤𝐢𝐬𝐢 𝐠𝐞𝐫𝐞𝐤𝐥𝐢!**",
@@ -47,7 +51,7 @@ class Moderation(commands.Cog):
             embed.set_footer(text=f"Moderasyon Sistemi • {interaction.guild.name}", icon_url=interaction.guild.icon.url if interaction.guild.icon else None)
             embed.timestamp = datetime.now(timezone.utc)
             
-            await interaction.response.send_message(embed=embed)
+            await interaction.response.send_message(embed=embed, ephemeral=gizli)
         except Exception as e:
             embed = discord.Embed(
                 description=f"❌ **𝐇𝐚𝐭𝐚:** ```{str(e)}```",
@@ -57,8 +61,11 @@ class Moderation(commands.Cog):
 
     # ========== UNBAN ==========
     @app_commands.command(name="unban", description="Bir kullanıcının yasağını kaldırır")
-    @app_commands.describe(user_id="Yasağı kaldırılacak kullanıcının ID'si")
-    async def unban(self, interaction: discord.Interaction, user_id: str):
+    @app_commands.describe(
+        user_id="Yasağı kaldırılacak kullanıcının ID'si",
+        gizli="Sadece siz görecek misiniz? (Evet/Hayır)"
+    )
+    async def unban(self, interaction: discord.Interaction, user_id: str, gizli: bool = False):
         if not interaction.user.guild_permissions.ban_members:
             embed = discord.Embed(
                 description="❌ **𝐁𝐮 𝐤𝐨𝐦𝐮𝐭𝐮 𝐤𝐮𝐥𝐥𝐚𝐧𝐦𝐚𝐤 𝐢𝐜𝐢𝐧 '𝐔𝐲𝐞𝐥𝐞𝐫𝐢 𝐘𝐚𝐬𝐚𝐤𝐥𝐚' 𝐲𝐞𝐭𝐤𝐢𝐬𝐢 𝐠𝐞𝐫𝐞𝐤𝐥𝐢!**",
@@ -94,7 +101,7 @@ class Moderation(commands.Cog):
             embed.set_footer(text=f"Moderasyon Sistemi • {interaction.guild.name}", icon_url=interaction.guild.icon.url if interaction.guild.icon else None)
             embed.timestamp = datetime.now(timezone.utc)
             
-            await interaction.response.send_message(embed=embed)
+            await interaction.response.send_message(embed=embed, ephemeral=gizli)
         except discord.NotFound:
             embed = discord.Embed(
                 description="❌ **𝐁𝐮 𝐈𝐃'𝐲𝐞 𝐬𝐚𝐡𝐢𝐩 𝐲𝐚𝐬𝐚𝐤𝐥𝐢 𝐤𝐮𝐥𝐥𝐚𝐧𝐢𝐜𝐢 𝐛𝐮𝐥𝐮𝐧𝐚𝐦𝐚𝐝𝐢!**",
@@ -110,8 +117,12 @@ class Moderation(commands.Cog):
 
     # ========== KICK ==========
     @app_commands.command(name="kick", description="Bir kullanıcıyı sunucudan atar")
-    @app_commands.describe(kullanici="Atılacak kullanıcı", sebep="Atma sebebi")
-    async def kick(self, interaction: discord.Interaction, kullanici: discord.Member, sebep: str = "Sebep belirtilmedi"):
+    @app_commands.describe(
+        kullanici="Atılacak kullanıcı",
+        sebep="Atma sebebi",
+        gizli="Sadece siz görecek misiniz? (Evet/Hayır)"
+    )
+    async def kick(self, interaction: discord.Interaction, kullanici: discord.Member, sebep: str = "Sebep belirtilmedi", gizli: bool = False):
         if not interaction.user.guild_permissions.kick_members:
             embed = discord.Embed(
                 description="❌ **𝐁𝐮 𝐤𝐨𝐦𝐮𝐭𝐮 𝐤𝐮𝐥𝐥𝐚𝐧𝐦𝐚𝐤 𝐢𝐜𝐢𝐧 '𝐔𝐲𝐞𝐥𝐞𝐫𝐢 𝐀𝐭' 𝐲𝐞𝐭𝐤𝐢𝐬𝐢 𝐠𝐞𝐫𝐞𝐤𝐥𝐢!**",
@@ -145,7 +156,7 @@ class Moderation(commands.Cog):
             embed.set_footer(text=f"Moderasyon Sistemi • {interaction.guild.name}", icon_url=interaction.guild.icon.url if interaction.guild.icon else None)
             embed.timestamp = datetime.now(timezone.utc)
             
-            await interaction.response.send_message(embed=embed)
+            await interaction.response.send_message(embed=embed, ephemeral=gizli)
         except Exception as e:
             embed = discord.Embed(
                 description=f"❌ **𝐇𝐚𝐭𝐚:** ```{str(e)}```",
@@ -153,10 +164,15 @@ class Moderation(commands.Cog):
             )
             await interaction.response.send_message(embed=embed, ephemeral=True)
 
-    # ========== TIMEOUT ==========
-    @app_commands.command(name="timeout", description="Kullanıcıya zaman aşımı uygular")
-    @app_commands.describe(kullanici="Susturulacak kullanıcı", dakika="Süre (dakika)", sebep="Susturma sebebi")
-    async def timeout(self, interaction: discord.Interaction, kullanici: discord.Member, dakika: int, sebep: str = "Sebep belirtilmedi"):
+    # ========== MUTE (Timeout) ==========
+    @app_commands.command(name="mute", description="Kullanıcıyı susturur")
+    @app_commands.describe(
+        kullanici="Susturulacak kullanıcı",
+        dakika="Süre (dakika)",
+        sebep="Susturma sebebi",
+        gizli="Sadece siz görecek misiniz? (Evet/Hayır)"
+    )
+    async def mute(self, interaction: discord.Interaction, kullanici: discord.Member, dakika: int, sebep: str = "Sebep belirtilmedi", gizli: bool = False):
         if not interaction.user.guild_permissions.moderate_members:
             embed = discord.Embed(
                 description="❌ **𝐁𝐮 𝐤𝐨𝐦𝐮𝐭𝐮 𝐤𝐮𝐥𝐥𝐚𝐧𝐦𝐚𝐤 𝐢𝐜𝐢𝐧 '𝐔𝐲𝐞𝐥𝐞𝐫𝐢 𝐘𝐨𝐧𝐞𝐭' 𝐲𝐞𝐭𝐤𝐢𝐬𝐢 𝐠𝐞𝐫𝐞𝐤𝐥𝐢!**",
@@ -169,7 +185,7 @@ class Moderation(commands.Cog):
             await kullanici.timeout(duration, reason=sebep)
             
             embed = discord.Embed(
-                title="🔇 𝐙𝐚𝐦𝐚𝐧 𝐀𝐬𝐢𝐦𝐢 𝐔𝐲𝐠𝐮𝐥𝐚𝐧𝐝𝐢",
+                title="🔇 𝐊𝐮𝐥𝐥𝐚𝐧𝐢𝐜𝐢 𝐒𝐮𝐬𝐭𝐮𝐫𝐮𝐥𝐝𝐮",
                 color=0x808080
             )
             embed.add_field(
@@ -196,7 +212,7 @@ class Moderation(commands.Cog):
             embed.set_footer(text=f"Moderasyon Sistemi • {interaction.guild.name}", icon_url=interaction.guild.icon.url if interaction.guild.icon else None)
             embed.timestamp = datetime.now(timezone.utc)
             
-            await interaction.response.send_message(embed=embed)
+            await interaction.response.send_message(embed=embed, ephemeral=gizli)
         except Exception as e:
             embed = discord.Embed(
                 description=f"❌ **𝐇𝐚𝐭𝐚:** ```{str(e)}```",
@@ -204,10 +220,13 @@ class Moderation(commands.Cog):
             )
             await interaction.response.send_message(embed=embed, ephemeral=True)
 
-    # ========== UNTIMEOUT ==========
-    @app_commands.command(name="untimeout", description="Kullanıcının zaman aşımını kaldırır")
-    @app_commands.describe(kullanici="Zaman aşımı kaldırılacak kullanıcı")
-    async def untimeout(self, interaction: discord.Interaction, kullanici: discord.Member):
+    # ========== UNMUTE (Untimeout) ==========
+    @app_commands.command(name="unmute", description="Kullanıcının susturmasını kaldırır")
+    @app_commands.describe(
+        kullanici="Susturması kaldırılacak kullanıcı",
+        gizli="Sadece siz görecek misiniz? (Evet/Hayır)"
+    )
+    async def unmute(self, interaction: discord.Interaction, kullanici: discord.Member, gizli: bool = False):
         if not interaction.user.guild_permissions.moderate_members:
             embed = discord.Embed(
                 description="❌ **𝐁𝐮 𝐤𝐨𝐦𝐮𝐭𝐮 𝐤𝐮𝐥𝐥𝐚𝐧𝐦𝐚𝐤 𝐢𝐜𝐢𝐧 '𝐔𝐲𝐞𝐥𝐞𝐫𝐢 𝐘𝐨𝐧𝐞𝐭' 𝐲𝐞𝐭𝐤𝐢𝐬𝐢 𝐠𝐞𝐫𝐞𝐤𝐥𝐢!**",
@@ -219,7 +238,7 @@ class Moderation(commands.Cog):
             await kullanici.timeout(None)
             
             embed = discord.Embed(
-                title="🔊 𝐙𝐚𝐦𝐚𝐧 𝐀𝐬𝐢𝐦𝐢 𝐊𝐚𝐥𝐝𝐢𝐫𝐢𝐥𝐝𝐢",
+                title="🔊 𝐒𝐮𝐬𝐭𝐮𝐫𝐦𝐚 𝐊𝐚𝐥𝐝𝐢𝐫𝐢𝐥𝐝𝐢",
                 color=0x00FF00
             )
             embed.add_field(
@@ -241,7 +260,7 @@ class Moderation(commands.Cog):
             embed.set_footer(text=f"Moderasyon Sistemi • {interaction.guild.name}", icon_url=interaction.guild.icon.url if interaction.guild.icon else None)
             embed.timestamp = datetime.now(timezone.utc)
             
-            await interaction.response.send_message(embed=embed)
+            await interaction.response.send_message(embed=embed, ephemeral=gizli)
         except Exception as e:
             embed = discord.Embed(
                 description=f"❌ **𝐇𝐚𝐭𝐚:** ```{str(e)}```",
@@ -251,8 +270,12 @@ class Moderation(commands.Cog):
 
     # ========== WARN ==========
     @app_commands.command(name="warn", description="Kullanıcıyı uyarır")
-    @app_commands.describe(kullanici="Uyarılacak kullanıcı", sebep="Uyarı sebebi")
-    async def warn(self, interaction: discord.Interaction, kullanici: discord.Member, sebep: str):
+    @app_commands.describe(
+        kullanici="Uyarılacak kullanıcı",
+        sebep="Uyarı sebebi",
+        gizli="Sadece siz görecek misiniz? (Evet/Hayır)"
+    )
+    async def warn(self, interaction: discord.Interaction, kullanici: discord.Member, sebep: str, gizli: bool = False):
         if not interaction.user.guild_permissions.moderate_members:
             embed = discord.Embed(
                 description="❌ **𝐁𝐮 𝐤𝐨𝐦𝐮𝐭𝐮 𝐤𝐮𝐥𝐥𝐚𝐧𝐦𝐚𝐤 𝐢𝐜𝐢𝐧 '𝐔𝐲𝐞𝐥𝐞𝐫𝐢 𝐘𝐨𝐧𝐞𝐭' 𝐲𝐞𝐭𝐤𝐢𝐬𝐢 𝐠𝐞𝐫𝐞𝐤𝐥𝐢!**",
@@ -298,12 +321,15 @@ class Moderation(commands.Cog):
         embed.set_footer(text=f"Moderasyon Sistemi • {interaction.guild.name}", icon_url=interaction.guild.icon.url if interaction.guild.icon else None)
         embed.timestamp = datetime.now(timezone.utc)
         
-        await interaction.response.send_message(f"{kullanici.mention}", embed=embed)
+        await interaction.response.send_message(f"{kullanici.mention}", embed=embed, ephemeral=gizli)
 
     # ========== CLEAR ==========
     @app_commands.command(name="clear", description="Belirtilen sayıda mesaj siler")
-    @app_commands.describe(sayi="Silinecek mesaj sayısı (1-1000)")
-    async def clear(self, interaction: discord.Interaction, sayi: int):
+    @app_commands.describe(
+        sayi="Silinecek mesaj sayısı (1-1000)",
+        gizli="Sadece siz görecek misiniz? (Evet/Hayır)"
+    )
+    async def clear(self, interaction: discord.Interaction, sayi: int, gizli: bool = True):
         if not interaction.user.guild_permissions.manage_messages:
             embed = discord.Embed(
                 description="❌ **𝐁𝐮 𝐤𝐨𝐦𝐮𝐭𝐮 𝐤𝐮𝐥𝐥𝐚𝐧𝐦𝐚𝐤 𝐢𝐜𝐢𝐧 '𝐌𝐞𝐬𝐚𝐣𝐥𝐚𝐫𝐢 𝐘𝐨𝐧𝐞𝐭' 𝐲𝐞𝐭𝐤𝐢𝐬𝐢 𝐠𝐞𝐫𝐞𝐤𝐥𝐢!**",
@@ -318,7 +344,7 @@ class Moderation(commands.Cog):
             )
             return await interaction.response.send_message(embed=embed, ephemeral=True)
 
-        await interaction.response.defer(ephemeral=True)
+        await interaction.response.defer(ephemeral=gizli)
         deleted = await interaction.channel.purge(limit=sayi)
 
         embed = discord.Embed(
@@ -343,7 +369,7 @@ class Moderation(commands.Cog):
         embed.set_footer(text=f"Moderasyon Sistemi • {interaction.guild.name}", icon_url=interaction.guild.icon.url if interaction.guild.icon else None)
         embed.timestamp = datetime.now(timezone.utc)
         
-        await interaction.followup.send(embed=embed, ephemeral=True)
+        await interaction.followup.send(embed=embed, ephemeral=gizli)
 
 
 async def setup(bot):
