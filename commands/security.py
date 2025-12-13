@@ -37,12 +37,12 @@ class Security(commands.Cog):
         return user_id in self.whitelisted_users[guild_id]
 
     # ====== WHITELIST EKLE ======
-    @app_commands.command(name="whitelist", description="Bir kullanıcıyı güvenlik filtrelerinden muaf tutar")
+    @app_commands.command(name="whitelist", description="🛡️ Bir kullanıcıyı güvenlik filtrelerinden muaf tutar")
     @app_commands.describe(kullanici="Muaf tutulacak kullanıcı")
     async def whitelist_add(self, interaction: discord.Interaction, kullanici: discord.Member):
         if not interaction.user.guild_permissions.administrator:
             embed = discord.Embed(
-                description="❌ **𝐁𝐮 𝐤𝐨𝐦𝐮𝐭𝐮 𝐤𝐮𝐥𝐥𝐚𝐧𝐦𝐚𝐤 𝐢𝐜𝐢𝐧 𝐲𝐨𝐧𝐞𝐭𝐢𝐜𝐢 𝐲𝐞𝐭𝐤𝐢𝐧𝐢𝐳 𝐨𝐥𝐦𝐚𝐥𝐢!**",
+                description="❌ Bu komutu kullanmak için yönetici yetkiniz olmalı!",
                 color=0xFF0000
             )
             return await interaction.response.send_message(embed=embed, ephemeral=True)
@@ -54,7 +54,7 @@ class Security(commands.Cog):
         
         if kullanici.id in self.whitelisted_users[guild_id]:
             embed = discord.Embed(
-                description=f"⚠️ {kullanici.mention} **𝐳𝐚𝐭𝐞𝐧 𝐦𝐮𝐚𝐟 𝐥𝐢𝐬𝐭𝐞𝐬𝐢𝐧𝐝𝐞!**",
+                description=f"⚠️ {kullanici.mention} zaten muaf listesinde!",
                 color=0xFFA500
             )
             return await interaction.response.send_message(embed=embed, ephemeral=True)
@@ -62,29 +62,27 @@ class Security(commands.Cog):
         self.whitelisted_users[guild_id].append(kullanici.id)
         
         embed = discord.Embed(
-            title="✅ 𝐌𝐮𝐚𝐟 𝐋𝐢𝐬𝐭𝐞𝐬𝐢𝐧𝐞 𝐄𝐤𝐥𝐞𝐧𝐝𝐢",
+            title="✅ Muaf Listesine Eklendi",
             color=0x00FF00
         )
-        embed.add_field(name="👤 𝐊𝐮𝐥𝐥𝐚𝐧𝐢𝐜𝐢", value=f"{kullanici.mention}\n```{kullanici.name}```", inline=True)
-        embed.add_field(name="🛡️ 𝐃𝐮𝐫𝐮𝐦", value="```Muaf```", inline=True)
+        embed.add_field(name="👤 Kullanıcı", value=f"{kullanici.mention}\n{kullanici.name}", inline=True)
+        embed.add_field(name="🛡️ Durum", value="Muaf", inline=True)
         embed.add_field(
-            name="📋 𝐃𝐞𝐭𝐚𝐲𝐥𝐚𝐫",
-            value="```Bu kullanıcı artık tüm güvenlik filtrelerinden muaf tutulacak```",
+            name="📋 Detaylar",
+            value="Bu kullanıcı artık tüm güvenlik filtrelerinden muaf tutulacak",
             inline=False
         )
         embed.set_thumbnail(url=kullanici.avatar.url if kullanici.avatar else kullanici.default_avatar.url)
-        embed.set_footer(text=f"Ekleyen: {interaction.user.name}", icon_url=interaction.user.avatar.url if interaction.user.avatar else None)
-        embed.timestamp = datetime.now()
         
         await interaction.response.send_message(embed=embed)
 
     # ====== WHITELIST ÇIKAR ======
-    @app_commands.command(name="unwhitelist", description="Bir kullanıcıyı muaf listesinden çıkarır")
+    @app_commands.command(name="unwhitelist", description="🗑️ Bir kullanıcıyı muaf listesinden çıkarır")
     @app_commands.describe(kullanici="Muaf listesinden çıkarılacak kullanıcı")
     async def whitelist_remove(self, interaction: discord.Interaction, kullanici: discord.Member):
         if not interaction.user.guild_permissions.administrator:
             embed = discord.Embed(
-                description="❌ **𝐁𝐮 𝐤𝐨𝐦𝐮𝐭𝐮 𝐤𝐮𝐥𝐥𝐚𝐧𝐦𝐚𝐤 𝐢𝐜𝐢𝐧 𝐲𝐨𝐧𝐞𝐭𝐢𝐜𝐢 𝐲𝐞𝐭𝐤𝐢𝐧𝐢𝐳 𝐨𝐥𝐦𝐚𝐥𝐢!**",
+                description="❌ Bu komutu kullanmak için yönetici yetkiniz olmalı!",
                 color=0xFF0000
             )
             return await interaction.response.send_message(embed=embed, ephemeral=True)
@@ -93,7 +91,7 @@ class Security(commands.Cog):
         
         if guild_id not in self.whitelisted_users or kullanici.id not in self.whitelisted_users[guild_id]:
             embed = discord.Embed(
-                description=f"⚠️ {kullanici.mention} **𝐦𝐮𝐚𝐟 𝐥𝐢𝐬𝐭𝐞𝐬𝐢𝐧𝐝𝐞 𝐝𝐞𝐠𝐢𝐥!**",
+                description=f"⚠️ {kullanici.mention} muaf listesinde değil!",
                 color=0xFFA500
             )
             return await interaction.response.send_message(embed=embed, ephemeral=True)
@@ -101,37 +99,35 @@ class Security(commands.Cog):
         self.whitelisted_users[guild_id].remove(kullanici.id)
         
         embed = discord.Embed(
-            title="🗑️ 𝐌𝐮𝐚𝐟 𝐋𝐢𝐬𝐭𝐞𝐬𝐢𝐧𝐝𝐞𝐧 𝐂𝐢𝐤𝐚𝐫𝐢𝐥𝐝𝐢",
+            title="🗑️ Muaf Listesinden Çıkarıldı",
             color=0xFF6B6B
         )
-        embed.add_field(name="👤 𝐊𝐮𝐥𝐥𝐚𝐧𝐢𝐜𝐢", value=f"{kullanici.mention}\n```{kullanici.name}```", inline=True)
-        embed.add_field(name="🛡️ 𝐃𝐮𝐫𝐮𝐦", value="```Normal```", inline=True)
+        embed.add_field(name="👤 Kullanıcı", value=f"{kullanici.mention}\n{kullanici.name}", inline=True)
+        embed.add_field(name="🛡️ Durum", value="Normal", inline=True)
         embed.add_field(
-            name="📋 𝐃𝐞𝐭𝐚𝐲𝐥𝐚𝐫",
-            value="```Bu kullanıcı artık güvenlik filtrelerine tabi olacak```",
+            name="📋 Detaylar",
+            value="Bu kullanıcı artık güvenlik filtrelerine tabi olacak",
             inline=False
         )
         embed.set_thumbnail(url=kullanici.avatar.url if kullanici.avatar else kullanici.default_avatar.url)
-        embed.set_footer(text=f"Çıkaran: {interaction.user.name}", icon_url=interaction.user.avatar.url if interaction.user.avatar else None)
-        embed.timestamp = datetime.now()
         
         await interaction.response.send_message(embed=embed)
 
     # ====== WHITELIST LİSTESİ ======
-    @app_commands.command(name="whitelistshow", description="Muaf tutulan kullanıcıları gösterir")
+    @app_commands.command(name="whitelistshow", description="📋 Muaf tutulan kullanıcıları gösterir")
     async def whitelist_show(self, interaction: discord.Interaction):
         guild_id = interaction.guild.id
         
         if guild_id not in self.whitelisted_users or not self.whitelisted_users[guild_id]:
             embed = discord.Embed(
-                description="📋 **𝐌𝐮𝐚𝐟 𝐥𝐢𝐬𝐭𝐞𝐬𝐢 𝐛𝐨𝐬!**",
+                description="📋 Muaf listesi boş!",
                 color=0x5865F2
             )
             return await interaction.response.send_message(embed=embed)
         
         embed = discord.Embed(
-            title="🛡️ 𝐌𝐮𝐚𝐟 𝐊𝐮𝐥𝐥𝐚𝐧𝐢𝐜𝐢𝐥𝐚𝐫",
-            description="```Aşağıdaki kullanıcılar güvenlik filtrelerinden muaf tutulmaktadır```",
+            title="🛡️ Muaf Kullanıcılar",
+            description="Aşağıdaki kullanıcılar güvenlik filtrelerinden muaf tutulmaktadır",
             color=0x00FF7F
         )
         
@@ -141,22 +137,20 @@ class Security(commands.Cog):
             if user:
                 users_text += f"✅ {user.mention} - `{user.name}`\n"
         
-        embed.add_field(name=f"👥 𝐓𝐨𝐩𝐥𝐚𝐦 ({len(self.whitelisted_users[guild_id])})", value=users_text or "```Kimse yok```", inline=False)
-        embed.set_footer(text=f"Sorgulayan: {interaction.user.name}", icon_url=interaction.user.avatar.url if interaction.user.avatar else None)
-        embed.timestamp = datetime.now()
+        embed.add_field(name=f"👥 Toplam ({len(self.whitelisted_users[guild_id])})", value=users_text or "Kimse yok", inline=False)
         
         await interaction.response.send_message(embed=embed)
 
     # ====== FİLTRE AÇ/KAPAT ======
-    @app_commands.command(name="filter", description="Güvenlik filtrelerini açıp kapatır")
+    @app_commands.command(name="filter", description="🔧 Güvenlik filtrelerini açıp kapatır")
     @app_commands.describe(
-        filtre="Filtre türü (antilink, antikufur, antispam, reklam)",
+        filtre="Filtre türü",
         durum="Durumu (aç veya kapat)"
     )
     async def filter_toggle(self, interaction: discord.Interaction, filtre: str, durum: str):
         if not interaction.user.guild_permissions.administrator:
             embed = discord.Embed(
-                description="❌ **𝐁𝐮 𝐤𝐨𝐦𝐮𝐭𝐮 𝐤𝐮𝐥𝐥𝐚𝐧𝐦𝐚𝐤 𝐢𝐜𝐢𝐧 𝐲𝐨𝐧𝐞𝐭𝐢𝐜𝐢 𝐲𝐞𝐭𝐤𝐢𝐧𝐢𝐳 𝐨𝐥𝐦𝐚𝐥𝐢!**",
+                description="❌ Bu komutu kullanmak için yönetici yetkiniz olmalı!",
                 color=0xFF0000
             )
             return await interaction.response.send_message(embed=embed, ephemeral=True)
@@ -167,15 +161,15 @@ class Security(commands.Cog):
         filtre = filtre.lower()
         if filtre not in filters:
             embed = discord.Embed(
-                title="❌ 𝐆𝐞𝐜𝐞𝐫𝐬𝐢𝐳 𝐅𝐢𝐥𝐭𝐫𝐞",
-                description="```Geçerli filtreler: antilink, antikufur, antispam, reklam```",
+                title="❌ Geçersiz Filtre",
+                description="Geçerli filtreler: antilink, antikufur, antispam, reklam",
                 color=0xFF0000
             )
             return await interaction.response.send_message(embed=embed, ephemeral=True)
 
         if durum not in ["aç", "kapat"]:
             embed = discord.Embed(
-                description="❌ **𝐃𝐮𝐫𝐮𝐦 '𝐚𝐜' 𝐯𝐞𝐲𝐚 '𝐤𝐚𝐩𝐚𝐭' 𝐨𝐥𝐦𝐚𝐥𝐢!**",
+                description="❌ Durum 'aç' veya 'kapat' olmalı!",
                 color=0xFF0000
             )
             return await interaction.response.send_message(embed=embed, ephemeral=True)
@@ -186,30 +180,28 @@ class Security(commands.Cog):
         status_color = 0x00FF00 if durum == "aç" else 0xFF0000
         
         embed = discord.Embed(
-            title=f"{status_emoji} 𝐅𝐢𝐥𝐭𝐫𝐞 {durum.upper()}𝐈𝐋𝐃𝐈",
+            title=f"{status_emoji} Filtre {durum.upper()}ILDI",
             color=status_color
         )
-        embed.add_field(name="🔧 𝐅𝐢𝐥𝐭𝐫𝐞", value=f"```{filtre}```", inline=True)
-        embed.add_field(name="📊 𝐃𝐮𝐫𝐮𝐦", value=f"```{durum.upper()}```", inline=True)
-        embed.set_footer(text=f"Değiştiren: {interaction.user.name}", icon_url=interaction.user.avatar.url if interaction.user.avatar else None)
-        embed.timestamp = datetime.now()
+        embed.add_field(name="🔧 Filtre", value=filtre, inline=True)
+        embed.add_field(name="📊 Durum", value=durum.upper(), inline=True)
         
         await interaction.response.send_message(embed=embed)
 
     # ====== FİLTRE DURUMU ======
-    @app_commands.command(name="filterstatus", description="Aktif filtrelerin durumunu gösterir")
+    @app_commands.command(name="filterstatus", description="📊 Aktif filtrelerin durumunu gösterir")
     async def filter_status(self, interaction: discord.Interaction):
         guild_id = interaction.guild.id
         filters = self.get_filters(guild_id)
         
         embed = discord.Embed(
-            title="🛡️ 𝐆𝐮𝐯𝐞𝐧𝐥𝐢𝐤 𝐅𝐢𝐥𝐭𝐫𝐞𝐥𝐞𝐫𝐢",
-            description="```Sunucudaki güvenlik filtrelerinin durumu```",
+            title="🛡️ Güvenlik Filtreleri",
+            description="Sunucudaki güvenlik filtrelerinin durumu",
             color=0x5865F2
         )
         
         for filtre, acik in filters.items():
-            durum = "🟢 𝐀𝐂𝐈𝐊" if acik else "🔴 𝐊𝐀𝐏𝐀𝐋𝐈"
+            durum = "🟢 AÇIK" if acik else "🔴 KAPALI"
             emoji_map = {
                 "antilink": "🔗",
                 "antikufur": "🚫",
@@ -218,20 +210,17 @@ class Security(commands.Cog):
             }
             embed.add_field(
                 name=f"{emoji_map.get(filtre, '🔧')} {filtre.upper()}",
-                value=f"```{durum}```",
+                value=durum,
                 inline=True
             )
         
         # Whitelist sayısı
         whitelist_count = len(self.whitelisted_users.get(guild_id, []))
         embed.add_field(
-            name="👥 𝐌𝐮𝐚𝐟 𝐊𝐮𝐥𝐥𝐚𝐧𝐢𝐜𝐢",
-            value=f"```{whitelist_count} kişi```",
+            name="👥 Muaf Kullanıcı",
+            value=f"{whitelist_count} kişi",
             inline=True
         )
-        
-        embed.set_footer(text=f"Sorgulayan: {interaction.user.name}", icon_url=interaction.user.avatar.url if interaction.user.avatar else None)
-        embed.timestamp = datetime.now()
         
         await interaction.response.send_message(embed=embed)
 
@@ -257,11 +246,10 @@ class Security(commands.Cog):
                 try:
                     await msg.delete()
                     embed = discord.Embed(
-                        title="🔗 𝐋𝐢𝐧𝐤 𝐄𝐧𝐠𝐞𝐥𝐥𝐞𝐧𝐝𝐢",
-                        description=f"{msg.author.mention}\n```Link paylaşmak yasaktır!```",
+                        title="🔗 Link Engellendi",
+                        description=f"{msg.author.mention}\nLink paylaşmak yasaktır!",
                         color=0xFF0000
                     )
-                    embed.set_footer(text="Güvenlik Sistemi", icon_url=msg.author.avatar.url if msg.author.avatar else None)
                     await msg.channel.send(embed=embed, delete_after=5)
                 except:
                     pass
@@ -273,11 +261,10 @@ class Security(commands.Cog):
                 try:
                     await msg.delete()
                     embed = discord.Embed(
-                        title="🚫 𝐊𝐮𝐟𝐮𝐫 𝐄𝐧𝐠𝐞𝐥𝐥𝐞𝐧𝐝𝐢",
-                        description=f"{msg.author.mention}\n```Küfür etmek yasaktır!```",
+                        title="🚫 Küfür Engellendi",
+                        description=f"{msg.author.mention}\nKüfür etmek yasaktır!",
                         color=0xFF0000
                     )
-                    embed.set_footer(text="Güvenlik Sistemi", icon_url=msg.author.avatar.url if msg.author.avatar else None)
                     await msg.channel.send(embed=embed, delete_after=5)
                 except:
                     pass
@@ -289,17 +276,16 @@ class Security(commands.Cog):
                 try:
                     await msg.delete()
                     embed = discord.Embed(
-                        title="📢 𝐑𝐞𝐤𝐥𝐚𝐦 𝐄𝐧𝐠𝐞𝐥𝐥𝐞𝐧𝐝𝐢",
-                        description=f"{msg.author.mention}\n```Reklam yapmak yasaktır!```",
+                        title="📢 Reklam Engellendi",
+                        description=f"{msg.author.mention}\nReklam yapmak yasaktır!",
                         color=0xFF0000
                     )
-                    embed.set_footer(text="Güvenlik Sistemi", icon_url=msg.author.avatar.url if msg.author.avatar else None)
                     await msg.channel.send(embed=embed, delete_after=5)
                 except:
                     pass
                 return
 
-        # ===== Anti-Spam (Geliştirilmiş) =====
+        # ===== Anti-Spam =====
         if filters.get("antispam", True):
             user_id = msg.author.id
             current_time = time.time()
@@ -320,11 +306,10 @@ class Security(commands.Cog):
                     try:
                         await msg.delete()
                         embed = discord.Embed(
-                            title="📵 𝐒𝐩𝐚𝐦 𝐄𝐧𝐠𝐞𝐥𝐥𝐞𝐧𝐝𝐢",
-                            description=f"{msg.author.mention}\n```Çok hızlı mesaj gönderiyorsunuz!```",
+                            title="📵 Spam Engellendi",
+                            description=f"{msg.author.mention}\nÇok hızlı mesaj gönderiyorsunuz!",
                             color=0xFF0000
                         )
-                        embed.set_footer(text="Güvenlik Sistemi", icon_url=msg.author.avatar.url if msg.author.avatar else None)
                         await msg.channel.send(embed=embed, delete_after=5)
                     except:
                         pass
