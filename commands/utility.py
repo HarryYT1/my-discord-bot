@@ -28,11 +28,11 @@ class Utility(commands.Cog):
             json.dump(data, f, indent=4, ensure_ascii=False)
 
     # ========== HATIRLATICI ==========
-    @app_commands.command(name="hatirlatici", description="Belirli bir süre sonra sizi hatırlatır")
+    @app_commands.command(name="hatirlatici", description="⏰ Belirli bir süre sonra sizi hatırlatır")
     @app_commands.describe(
         sure="Süre (örnek: 10s, 5m, 2h, 1d)",
         mesaj="Hatırlatma mesajı",
-        gizli="Sadece siz görecek misiniz? (Evet/Hayır)"
+        gizli="Sadece siz görecek misiniz?"
     )
     async def hatirlatici(self, interaction: discord.Interaction, sure: str, mesaj: str, gizli: bool = True):
         # Süre dönüştürme
@@ -42,15 +42,15 @@ class Utility(commands.Cog):
             duration = int(sure[:-1]) * time_multiplier
         except:
             embed = discord.Embed(
-                title="❌ 𝐇𝐚𝐭𝐚𝐥𝐢 𝐒𝐮𝐫𝐞 𝐅𝐨𝐫𝐦𝐚𝐭𝐢",
-                description="```Örnek: 10s, 5m, 2h, 1d```",
+                title="❌ Hatalı Süre Formatı",
+                description="Örnek: 10s, 5m, 2h, 1d",
                 color=0xFF0000
             )
             return await interaction.response.send_message(embed=embed, ephemeral=True)
 
         if duration > 604800:  # 7 gün
             embed = discord.Embed(
-                description="❌ **𝐌𝐚𝐤𝐬𝐢𝐦𝐮𝐦 𝟕 𝐠𝐮𝐧 𝐨𝐥𝐚𝐛𝐢𝐥𝐢𝐫!**",
+                description="❌ Maksimum 7 gün olabilir!",
                 color=0xFF0000
             )
             return await interaction.response.send_message(embed=embed, ephemeral=True)
@@ -58,14 +58,12 @@ class Utility(commands.Cog):
         end_time = datetime.now(timezone.utc) + timedelta(seconds=duration)
 
         embed = discord.Embed(
-            title="⏰ 𝐇𝐚𝐭𝐢𝐫𝐥𝐚𝐭𝐢𝐜𝐢 𝐊𝐮𝐫𝐮𝐥𝐝𝐮",
+            title="⏰ Hatırlatıcı Kuruldu",
             color=0x00FF00
         )
-        embed.add_field(name="📝 𝐌𝐞𝐬𝐚𝐣", value=f"```{mesaj}```", inline=False)
-        embed.add_field(name="⏱️ 𝐒𝐮𝐫𝐞", value=f"```{sure}```", inline=True)
-        embed.add_field(name="📅 𝐁𝐢𝐭𝐢𝐬", value=f"<t:{int(end_time.timestamp())}:R>", inline=True)
-        embed.set_footer(text=f"Hatırlatıcı • {interaction.user.name}", icon_url=interaction.user.avatar.url if interaction.user.avatar else None)
-        embed.timestamp = datetime.now(timezone.utc)
+        embed.add_field(name="📝 Mesaj", value=mesaj, inline=False)
+        embed.add_field(name="⏱️ Süre", value=sure, inline=True)
+        embed.add_field(name="📅 Bitiş", value=f"<t:{int(end_time.timestamp())}:R>", inline=True)
 
         await interaction.response.send_message(embed=embed, ephemeral=gizli)
 
@@ -74,13 +72,10 @@ class Utility(commands.Cog):
 
         # Hatırlatma mesajı
         reminder_embed = discord.Embed(
-            title="🔔 𝐇𝐚𝐭𝐢𝐫𝐥𝐚𝐭𝐦𝐚!",
-            description=f"```{mesaj}```",
+            title="🔔 Hatırlatma!",
+            description=mesaj,
             color=0xFFD700
         )
-        reminder_embed.add_field(name="⏰ 𝐊𝐮𝐫𝐮𝐥𝐮𝐦 𝐙𝐚𝐦𝐚𝐧𝐢", value=f"<t:{int((end_time - timedelta(seconds=duration)).timestamp())}:R>", inline=True)
-        reminder_embed.set_footer(text=f"Hatırlatıcı Sistemi", icon_url=interaction.user.avatar.url if interaction.user.avatar else None)
-        reminder_embed.timestamp = datetime.now(timezone.utc)
 
         try:
             if interaction.channel:
@@ -93,15 +88,15 @@ class Utility(commands.Cog):
                 pass
 
     # ========== OTOROL ==========
-    @app_commands.command(name="otorol", description="Yeni üyelere otomatik rol verir")
+    @app_commands.command(name="otorol", description="🎭 Yeni üyelere otomatik rol verir")
     @app_commands.describe(
         rol="Verilecek rol (boş bırakırsanız kapatılır)",
-        gizli="Sadece siz görecek misiniz? (Evet/Hayır)"
+        gizli="Sadece siz görecek misiniz?"
     )
     async def otorol(self, interaction: discord.Interaction, rol: discord.Role = None, gizli: bool = True):
         if not interaction.user.guild_permissions.manage_roles:
             embed = discord.Embed(
-                description="❌ **𝐁𝐮 𝐤𝐨𝐦𝐮𝐭𝐮 𝐤𝐮𝐥𝐥𝐚𝐧𝐦𝐚𝐤 𝐢𝐜𝐢𝐧 '𝐑𝐨𝐥𝐥𝐞𝐫𝐢 𝐘𝐨𝐧𝐞𝐭' 𝐲𝐞𝐭𝐤𝐢𝐬𝐢 𝐠𝐞𝐫𝐞𝐤𝐥𝐢!**",
+                description="❌ Bu komutu kullanmak için 'Rolleri Yönet' yetkisi gerekli!",
                 color=0xFF0000
             )
             return await interaction.response.send_message(embed=embed, ephemeral=True)
@@ -110,31 +105,27 @@ class Utility(commands.Cog):
 
         if rol:
             self.autorole_settings[guild_id_str] = rol.id
-            status = "✅ 𝐀𝐤𝐭𝐢𝐟"
+            status = "✅ Aktif"
             rol_info = rol.mention
             color = 0x00FF00
+            bilgi = "Yeni üyeler bu rolü otomatik alacak"
         else:
             if guild_id_str in self.autorole_settings:
                 del self.autorole_settings[guild_id_str]
-            status = "❌ 𝐊𝐚𝐩𝐚𝐥𝐢"
-            rol_info = "```Kapatıldı```"
+            status = "❌ Kapalı"
+            rol_info = "Kapatıldı"
             color = 0xFF0000
+            bilgi = "Otorol sistemi kapatıldı"
 
         self.save_json(AUTOROLE_FILE, self.autorole_settings)
 
         embed = discord.Embed(
-            title="🎭 𝐎𝐭𝐨𝐫𝐨𝐥 𝐀𝐲𝐚𝐫𝐥𝐚𝐧𝐝𝐢",
+            title="🎭 Otorol Ayarlandı",
             color=color
         )
-        embed.add_field(name="📊 𝐃𝐮𝐫𝐮𝐦", value=status, inline=True)
-        embed.add_field(name="🎭 𝐑𝐨𝐥", value=rol_info, inline=True)
-        embed.add_field(
-            name="📋 𝐁𝐢𝐥𝐠𝐢",
-            value="```Yeni üyeler bu rolü otomatik alacak```" if rol else "```Otorol sistemi kapatıldı```",
-            inline=False
-        )
-        embed.set_footer(text=f"Ayarlayan: {interaction.user.name}", icon_url=interaction.user.avatar.url if interaction.user.avatar else None)
-        embed.timestamp = datetime.now(timezone.utc)
+        embed.add_field(name="📊 Durum", value=status, inline=True)
+        embed.add_field(name="🎭 Rol", value=rol_info, inline=True)
+        embed.add_field(name="📋 Bilgi", value=bilgi, inline=False)
 
         await interaction.response.send_message(embed=embed, ephemeral=gizli)
 
@@ -157,16 +148,16 @@ class Utility(commands.Cog):
                 print(f"❌ Otorol hatası: {e}")
 
     # ========== OTOCEVAP ==========
-    @app_commands.command(name="otocevap", description="Belirli kelimelere otomatik cevap verir")
+    @app_commands.command(name="otocevap", description="💬 Belirli kelimelere otomatik cevap verir")
     @app_commands.describe(
         anahtar="Tetikleyici kelime",
         cevap="Verilecek cevap (boş bırakırsanız silinir)",
-        gizli="Sadece siz görecek misiniz? (Evet/Hayır)"
+        gizli="Sadece siz görecek misiniz?"
     )
     async def otocevap(self, interaction: discord.Interaction, anahtar: str, cevap: str = None, gizli: bool = True):
         if not interaction.user.guild_permissions.manage_guild:
             embed = discord.Embed(
-                description="❌ **𝐁𝐮 𝐤𝐨𝐦𝐮𝐭𝐮 𝐤𝐮𝐥𝐥𝐚𝐧𝐦𝐚𝐤 𝐢𝐜𝐢𝐧 '𝐒𝐮𝐧𝐮𝐜𝐮𝐲𝐮 𝐘𝐨𝐧𝐞𝐭' 𝐲𝐞𝐭𝐤𝐢𝐬𝐢 𝐠𝐞𝐫𝐞𝐤𝐥𝐢!**",
+                description="❌ Bu komutu kullanmak için 'Sunucuyu Yönet' yetkisi gerekli!",
                 color=0xFF0000
             )
             return await interaction.response.send_message(embed=embed, ephemeral=True)
@@ -180,58 +171,54 @@ class Utility(commands.Cog):
 
         if cevap:
             self.autoreply_settings[guild_id_str][anahtar_lower] = cevap
-            status = "✅ 𝐄𝐤𝐥𝐞𝐧𝐝𝐢"
+            status = "✅ Eklendi"
             color = 0x00FF00
         else:
             if anahtar_lower in self.autoreply_settings[guild_id_str]:
                 del self.autoreply_settings[guild_id_str][anahtar_lower]
-            status = "🗑️ 𝐒𝐢𝐥𝐢𝐧𝐝𝐢"
+            status = "🗑️ Silindi"
             color = 0xFF0000
 
         self.save_json(AUTOREPLY_FILE, self.autoreply_settings)
 
         embed = discord.Embed(
-            title="💬 𝐎𝐭𝐨𝐜𝐞𝐯𝐚𝐩 𝐀𝐲𝐚𝐫𝐥𝐚𝐧𝐝𝐢",
+            title="💬 Otocevap Ayarlandı",
             color=color
         )
-        embed.add_field(name="🔑 𝐀𝐧𝐚𝐡𝐭𝐚𝐫", value=f"```{anahtar}```", inline=True)
-        embed.add_field(name="📊 𝐃𝐮𝐫𝐮𝐦", value=status, inline=True)
+        embed.add_field(name="🔑 Anahtar", value=anahtar, inline=True)
+        embed.add_field(name="📊 Durum", value=status, inline=True)
         
         if cevap:
-            embed.add_field(name="💬 𝐂𝐞𝐯𝐚𝐩", value=f"```{cevap}```", inline=False)
-        
-        embed.set_footer(text=f"Ayarlayan: {interaction.user.name}", icon_url=interaction.user.avatar.url if interaction.user.avatar else None)
-        embed.timestamp = datetime.now(timezone.utc)
+            embed.add_field(name="💬 Cevap", value=cevap, inline=False)
 
         await interaction.response.send_message(embed=embed, ephemeral=gizli)
 
     # ========== OTOCEVAP LİSTE ==========
-    @app_commands.command(name="otocevaplist", description="Tüm otocevapları gösterir")
+    @app_commands.command(name="otocevaplist", description="📝 Tüm otocevapları gösterir")
     async def otocevap_list(self, interaction: discord.Interaction, gizli: bool = True):
         guild_id_str = str(interaction.guild.id)
         
         if guild_id_str not in self.autoreply_settings or not self.autoreply_settings[guild_id_str]:
             embed = discord.Embed(
-                description="📋 **𝐇𝐢𝐜 𝐨𝐭𝐨𝐜𝐞𝐯𝐚𝐩 𝐭𝐚𝐧𝐢𝐦𝐥𝐚𝐧𝐦𝐚𝐦𝐢𝐬!**",
+                description="📋 Hiç otocevap tanımlanmamış!",
                 color=0x5865F2
             )
             return await interaction.response.send_message(embed=embed, ephemeral=gizli)
 
         embed = discord.Embed(
-            title="💬 𝐎𝐭𝐨𝐜𝐞𝐯𝐚𝐩 𝐋𝐢𝐬𝐭𝐞𝐬𝐢",
-            description="```Sunucudaki otomatik cevaplar```",
+            title="💬 Otocevap Listesi",
+            description="Sunucudaki otomatik cevaplar",
             color=0x5865F2
         )
 
         for i, (anahtar, cevap) in enumerate(self.autoreply_settings[guild_id_str].items(), 1):
             embed.add_field(
                 name=f"{i}. {anahtar}",
-                value=f"```{cevap[:100]}```",
+                value=cevap[:100],
                 inline=False
             )
 
-        embed.set_footer(text=f"Toplam {len(self.autoreply_settings[guild_id_str])} otocevap", icon_url=interaction.guild.icon.url if interaction.guild.icon else None)
-        embed.timestamp = datetime.now(timezone.utc)
+        embed.set_footer(text=f"Toplam {len(self.autoreply_settings[guild_id_str])} otocevap")
 
         await interaction.response.send_message(embed=embed, ephemeral=gizli)
 
@@ -251,7 +238,8 @@ class Utility(commands.Cog):
         for anahtar, cevap in self.autoreply_settings[guild_id_str].items():
             if anahtar in content_lower:
                 try:
-                    await message.channel.send(cevap)
+                    # Mesajı yanıtla
+                    await message.reply(cevap, mention_author=True)
                 except:
                     pass
                 break
