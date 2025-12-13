@@ -22,74 +22,141 @@ class Fun(commands.Cog):
             "https://media1.tenor.com/m/TXEjvB5c1iYAAAAC/anime-kiss.gif",
             "https://media1.tenor.com/m/ZqAanQyj_GAAAAAC/anime-kiss.gif",
             "https://media1.tenor.com/m/v-dqGMgbwdYAAAAC/kiss-anime.gif",
-            "https://media1.tenor.com/m/45t8vQxW4GAAAAAC/anime-kiss.gif",
-            "https://media1.tenor.com/m/N5j6N2g4lM0AAAAC/anime-kiss.gif"
+            "https://media1.tenor.com/m/RTgr0eYP-UMAAAAC/kiss-anime-kiss.gif",
+            "https://media1.tenor.com/m/u8kq2vE6xOAAAAAC/anime-love.gif"
         ]
         
-    # ========== HUG ==========\r\n
-    @app_commands.command(name="hug", description="Birine sarılırsın")
-    @app_commands.describe(kullanici="Sarılacağınız kişi")
+        self.slap_gifs = [
+            "https://media1.tenor.com/m/Oyq5hZrVXkEAAAAC/anime-slap.gif",
+            "https://media1.tenor.com/m/ZC2EpPHTHueAAAAC/slap-hit.gif",
+            "https://media1.tenor.com/m/zC4lYeWqh7MAAAAC/anime-slap.gif",
+            "https://media1.tenor.com/m/W23TWGxTnMoAAAAC/anime-mad.gif",
+            "https://media1.tenor.com/m/D9jJZb6s1dEAAAAC/slap.gif"
+        ]
+
+    # ========== SAY ==========
+    @app_commands.command(name="say", description="💬 Bot yazdığınız mesajı tekrar eder")
+    @app_commands.describe(mesaj="Tekrar edilecek mesaj")
+    async def say(self, interaction: discord.Interaction, mesaj: str):
+        embed = discord.Embed(
+            description=mesaj,
+            color=0x5865F2
+        )
+        await interaction.response.send_message(embed=embed)
+
+    # ========== JOKE ==========
+    @app_commands.command(name="joke", description="😂 Rastgele bir şaka gönderir")
+    async def joke(self, interaction: discord.Interaction):
+        jokes = [
+            "Bilgisayar neden üşümez? Çünkü içinde fan vardır 😂",
+            "Neden deniz dalgalıdır? Çünkü karaya çıkamaz 😅",
+            "Adamın biri güneşte yanmış, ayda da donmuş 😆",
+            "Programcılar neden bahçe işlerini sevmez? Çünkü bug'ları kovmaktan bıkmışlardır 🐛",
+            "Bilgisayarcılar neden açık havayı sevmez? Çünkü dışarısı 'cloud' dolu ☁️"
+        ]
+        
+        embed = discord.Embed(
+            title="😂 Rastgele Şaka",
+            description=random.choice(jokes),
+            color=0xFFD700
+        )
+        await interaction.response.send_message(embed=embed)
+
+    # ========== 8BALL ==========
+    @app_commands.command(name="sor", description="🎱 Bot sorunuza rastgele yanıt verir")
+    @app_commands.describe(soru="Sormak istediğiniz soru")
+    async def sor(self, interaction: discord.Interaction, soru: str):
+        cevaplar = [
+            "Kesinlikle evet! ✅",
+            "Bence olabilir. 🤔",
+            "İmkansız gibi duruyor. ❌",
+            "Bunu söylemek için çok erken. ⏰",
+            "Hayır. ❎",
+            "Kesinlikle hayır! 🚫",
+            "Şüphesiz! 💯",
+            "Belki... 🎲",
+            "Yeniden sor. 🔄"
+        ]
+        
+        embed = discord.Embed(
+            title="🎱 8Ball",
+            color=0x8B00FF
+        )
+        embed.add_field(name="❓ Soru", value=soru, inline=False)
+        embed.add_field(name="💭 Cevap", value=random.choice(cevaplar), inline=False)
+        
+        await interaction.response.send_message(embed=embed)
+
+    # ========== HUG ==========
+    @app_commands.command(name="hug", description="🤗 Birini sarılırsınız")
+    @app_commands.describe(kullanici="Sarılmak istediğiniz kişi")
     async def hug(self, interaction: discord.Interaction, kullanici: discord.Member):
         if kullanici == interaction.user:
-            # GÖRÜNÜM DÜZENLEMESİ BAŞLANGIÇ
             embed = discord.Embed(
-                description="❌ **Kendine sarılamazsın!** 😊",
+                description="❌ Kendinize sarılamazsınız!",
                 color=0xFF0000
             )
             return await interaction.response.send_message(embed=embed, ephemeral=True)
-            # GÖRÜNÜM DÜZENLEMESİ SON
         
-        # GÖRÜNÜM DÜZENLEMESİ BAŞLANGIÇ
         embed = discord.Embed(
-            title="🫂 Sarılma Zamanı",
-            description=f"{interaction.user.mention} **➜** {kullanici.mention}\n_Sımsıkı sarıldılar!_",
+            title="🤗 Sarılma",
+            description=f"{interaction.user.mention} ➜ {kullanici.mention}\nSıcacık bir sarılma!",
             color=0xFF69B4
         )
         embed.set_image(url=random.choice(self.hug_gifs))
-        embed.set_footer(text=f"İstek: {interaction.user.name}", icon_url=interaction.user.avatar.url if interaction.user.avatar else None)
-        embed.timestamp = datetime.now(timezone.utc)
         
         await interaction.response.send_message(embed=embed)
-        # GÖRÜNÜM DÜZENLEMESİ SON
 
-    # ========== KISS ==========\r\n
-    @app_commands.command(name="kiss", description="Birini öpersin")
-    @app_commands.describe(kullanici="Öpeceğiniz kişi")
+    # ========== KISS ==========
+    @app_commands.command(name="kiss", description="💋 Birine öpücük gönderirsin")
+    @app_commands.describe(kullanici="Öpmek istediğiniz kişi")
     async def kiss(self, interaction: discord.Interaction, kullanici: discord.Member):
         if kullanici == interaction.user:
-            # GÖRÜNÜM DÜZENLEMESİ BAŞLANGIÇ
             embed = discord.Embed(
-                description="❌ **Kendi kendini öpemezsin!** 😉",
+                description="❌ Kendinizi öpemezsiniz!",
                 color=0xFF0000
             )
             return await interaction.response.send_message(embed=embed, ephemeral=True)
-            # GÖRÜNÜM DÜZENLEMESİ SON
         
-        # GÖRÜNÜM DÜZENLEMESİ BAŞLANGIÇ
         embed = discord.Embed(
             title="💋 Öpücük",
-            description=f"{interaction.user.mention} **➜** {kullanici.mention}\n_Dudaklarından öptü!_",
-            color=0xFF69B4
+            description=f"{interaction.user.mention} ➜ {kullanici.mention}\nRomantik bir öpücük!",
+            color=0xFF1493
         )
         embed.set_image(url=random.choice(self.kiss_gifs))
-        embed.set_footer(text=f"İstek: {interaction.user.name}", icon_url=interaction.user.avatar.url if interaction.user.avatar else None)
-        embed.timestamp = datetime.now(timezone.utc)
         
         await interaction.response.send_message(embed=embed)
-        # GÖRÜNÜM DÜZENLEMESİ SON
 
-    # ========== PAT ==========\r\n
-    @app_commands.command(name="pat", description="Birinin başını okşarsın")
+    # ========== SLAP ==========
+    @app_commands.command(name="slap", description="👋 Birine tokat atarsın")
+    @app_commands.describe(kullanici="Tokat atacağınız kişi")
+    async def slap(self, interaction: discord.Interaction, kullanici: discord.Member):
+        if kullanici == interaction.user:
+            embed = discord.Embed(
+                description="❌ Kendinize tokat atamazsınız!",
+                color=0xFF0000
+            )
+            return await interaction.response.send_message(embed=embed, ephemeral=True)
+        
+        embed = discord.Embed(
+            title="👋 Tokat",
+            description=f"{interaction.user.mention} ➜ {kullanici.mention}\nGüçlü bir tokat!",
+            color=0xFF4500
+        )
+        embed.set_image(url=random.choice(self.slap_gifs))
+        
+        await interaction.response.send_message(embed=embed)
+
+    # ========== PAT ==========
+    @app_commands.command(name="pat", description="✋ Birinin başını okşarsın")
     @app_commands.describe(kullanici="Başını okşayacağınız kişi")
     async def pat(self, interaction: discord.Interaction, kullanici: discord.Member):
         if kullanici == interaction.user:
-            # GÖRÜNÜM DÜZENLEMESİ BAŞLANGIÇ
             embed = discord.Embed(
-                description="❌ **Kendi başınızı okşayamazsınız!** 😊",
+                description="❌ Kendi başınızı okşayamazsınız!",
                 color=0xFF0000
             )
             return await interaction.response.send_message(embed=embed, ephemeral=True)
-            # GÖRÜNÜM DÜZENLEMESİ SON
         
         pat_gifs = [
             "https://media1.tenor.com/m/FmJHdN7Vt04AAAAC/anime-head-pat.gif",
@@ -97,18 +164,14 @@ class Fun(commands.Cog):
             "https://media1.tenor.com/m/AlLLoFk_UAYAAAAC/headpat-anime.gif"
         ]
         
-        # GÖRÜNÜM DÜZENLEMESİ BAŞLANGIÇ
         embed = discord.Embed(
-            title="✋ Baş Okşama",
-            description=f"{interaction.user.mention} **➜** {kullanici.mention}\n_Sevgiyle okşadı!_",
-            color=0x5865F2
+            title="✋ Okşama",
+            description=f"{interaction.user.mention} ➜ {kullanici.mention}\nSevgiyle okşadı!",
+            color=0xFFC0CB
         )
         embed.set_image(url=random.choice(pat_gifs))
-        embed.set_footer(text=f"İstek: {interaction.user.name}", icon_url=interaction.user.avatar.url if interaction.user.avatar else None)
-        embed.timestamp = datetime.now(timezone.utc)
         
         await interaction.response.send_message(embed=embed)
-        # GÖRÜNÜM DÜZENLEMESİ SON
 
 
 async def setup(bot):
